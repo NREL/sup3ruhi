@@ -26,9 +26,7 @@ from sup3r.preprocessing.dual_batch_handling import DualBatchHandler
 from sup3r.preprocessing.data_handling import DataHandlerH5, DataHandlerNC, DualDataHandler
 from sup3r.utilities.utilities import spatial_coarsening, transform_rotate_wind
 
-import sys
-sys.path.append('/projects/alcaps/sup3rcc_uhi/')
-from uhi_data_handling import EraCity, ModisStaticLayer, Nsrdb, Utilities
+from sup3ruhi.data_model.data_model import EraCity, ModisStaticLayer, Nsrdb, Utilities
 
 logger = logging.getLogger(__name__)
 
@@ -414,9 +412,9 @@ class Sup3rUHI:
 
     def make_trh_input(self, lst=None, yslice=slice(None), xslice=slice(None)):
         """Make spatiotemporal data inputs for T2M model"""
-    
+
         logger.debug('Making TRH input...')
-    
+
         if lst is None and self.lst is None:
             logger.debug('LST input to T2M model is None, '
                          'running LST model...')
@@ -425,11 +423,11 @@ class Sup3rUHI:
             logger.debug('LST input to T2M model is None, '
                          'using self.lst...')
             lst = self.lst
-    
+
         lst_input = self.lst_input
         if self.lst_input is None:
             lst_input = self.make_lst_input(yslice=yslice, xslice=xslice)
-    
+
         # (time, lat, lon, features)
         shape = [len(self.ti_1hr),
                  self.city_data.shape[0] + 2 * self.model_trh_pad,
@@ -442,7 +440,7 @@ class Sup3rUHI:
             shape[2] = len(np.arange(shape[2])[xslice])
             shape[2] += 2 * self.model_trh_pad
         trh_input = np.zeros(shape, dtype=np.float32)
-    
+
         for idf, feature in enumerate(self.model_trh.feature_names):
             roll = 0
             if '_roll' in feature:
@@ -450,34 +448,34 @@ class Sup3rUHI:
                 assert roll.startswith('roll')
                 feature = feature.replace(f'_{roll}', '')
                 roll = int(roll.strip('roll'))
-    
+
             if feature in self.dsets_trh:
                 idf_source = self.dsets_trh.index(feature)
                 # idt_source = np.where(self.ti_1hr.isin(self.ti_12hr))[0]
                 arr = self.trh_data[:, yslice, xslice, idf_source]
-    
+
             elif feature == 'ghi':
                 arr = self.ghi[:, yslice, xslice]
             elif feature == 'dni':
                 arr = self.dni[:, yslice, xslice]
-    
+
             elif feature == 'lst':
                 arr = self._interp_trh_input_arr(lst)
-    
+
             elif feature in self.model_lst.lr_features:
                 idf_source = self.model_lst.lr_features.index(feature)
                 arr = lst_input[..., idf_source]
                 arr = self._interp_trh_input_arr(arr)
-    
+
             if roll > 0:
                 arr = np.roll(arr, roll, axis=0)
-    
+
             trh_input[..., idf] = self._pad_trh_input_arr(arr)
-    
+
         self.trh_input = trh_input
-    
+
         logger.debug('Finished making TRH input.')
-    
+
         return trh_input
 
     def generate_lst(self, lst_input=None, chunks=None, yslice=slice(None), xslice=slice(None)):
