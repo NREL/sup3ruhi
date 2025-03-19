@@ -28,6 +28,7 @@ classifiers=[
 ]
 dependencies = [
   "NREL-sup3r<0.2.0",
+  "NREL-phygnn==0.0.30",
 ]
 
 [project.optional-dependencies]
