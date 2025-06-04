@@ -49,6 +49,7 @@ ATTRS = {
         'land_mask': dict(units="bool", description="MODIS land mask from land cover type 1 IGBP class from MCD12Q1", valid_min=0, valid_max=1, dtype='int16', scale_factor=1.0),
         'built_volume': dict(units="1e3 m3", description="Total built volume per cell derived from the EU global human settlement layer", valid_min=0, valid_max=1e4, dtype='float32', scale_factor=1.0),
         'built_height': dict(units="m", description="Average net building height derived from the EU global human settlement layer", valid_min=0, valid_max=100, dtype='float32', scale_factor=1.0),
+        'built_surface': dict(units="m2", description="Total surface built area derived from the EU global human settlement layer", valid_min=0, valid_max=1e6, dtype='float32', scale_factor=1.0),
         'population': dict(units="number of people per cell", description="Population derived from the EU global human settlement layer", valid_min=0, valid_max=1e5, dtype='float32', scale_factor=1.0),
         }
 for k, v in ATTRS.items():
