@@ -1,6 +1,9 @@
 Welcome to Sup3rUHI!
 ====================
 
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.17041736.svg
+  :target: https://doi.org/10.5281/zenodo.17041736
+
 Urban heat is a growing concern, particularly in dense metropolitan areas where
 high temperatures increase the risk of heat-related illness and drive energy
 expenses for cooling. Estimating the effects of urban heat remains a challenge
