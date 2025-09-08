@@ -1,4 +1,5 @@
 import os
+import glob
 import shutil
 from concurrent.futures import ProcessPoolExecutor
 from cftime import date2num
@@ -548,6 +549,11 @@ class Utilities:
         yslice = (dset.y > bounds.y.min()) & (dset.y < bounds.y.max())
         xslice = np.where(xslice)[0]
         yslice = np.where(yslice)[0]
+        if len(xslice) <= 1 or len(yslice) <= 1:
+            raise RuntimeError(
+                'Could not find any data close to coord '
+                f'{coord} with offset {coord_offset}'
+            )
         xslice = slice(xslice[0], xslice[-1] + 1)
         yslice = slice(yslice[0], yslice[-1] + 1)
 
@@ -1149,7 +1155,7 @@ class ModisGfLst:
      5078492)
     """
 
-    def __init__(self, fp, coord, coord_offset, yslice, xslice):
+    def __init__(self, fp, coord, coord_offset, yslice=None, xslice=None):
         """
         Parameters
         ----------
@@ -1285,17 +1291,17 @@ class ModisGfLst:
 
 class GhsData:
     """Class to handle 100m Global Human Settlement (GHS) data from:
-    https://ghsl.jrc.ec.europa.eu/download.php? And converted to .h5 files.
+    https://ghsl.jrc.ec.europa.eu/download.php?
     """
 
-    def __init__(self, fp, coord, coord_offset, dset='population', cache=None):
+    def __init__(self, fps, coord, coord_offset, yslice=None, xslice=None):
         """
         Parameters
         ----------
-        fp : str
-            This is a filepath to a GHS data file converted from .tif to .h5
-            (e.g., with reVX ExclusionsConverter). Needs: meta (pd.DataFrame
-            with latitude and longitude) and dset (1D flattened data array).
+        fps : str | list
+            One or more filepaths to GHS data files in .tif with EU GHSL
+            projection (i think World_Mollweide CRS). Needs: CRS information,
+            band_data, x, and y.
         coord : tuple
             Coordinate (lat, lon) of the city of interest
         coord_offset : float
@@ -1303,49 +1309,61 @@ class GhsData:
             satellite data. This should be a little bit smaller than the ERA
             raster extent calculated with the pixel nearest the coordinate +/-
             the pixel_offset
-        dset : str
-            Dataset to be loaded, typically population, built_volume, or
-            built_height
-        cache : str | None
-            Optional cache filepath to .csv that can store the reduced meta
-            data and slicing information to reduce the full GHS file which may
-            be quite large.
+        yslice : slice
+            Slice object to select the y dimension of the non-WGS84 LST raster
+            that will include the coord/coord_offset
+        xslice : slice
+            Slice object to select the x dimension of the non-WGS84 LST raster
+            that will include the coord/coord_offset
         """
 
-        self.fp = fp
-        self.dset = dset
+        if isinstance(fps, str):
+            fps = sorted(glob.glob(fps))
+        assert isinstance(fps, (list, tuple))
 
-        if cache is None or not os.path.exists(cache):
-            with Resource(self.fp) as handle:
-                assert self.dset in handle
-                self.meta_full = handle.meta
-
-            lat = self.meta_full['latitude'].values
-            lon = self.meta_full['longitude'].values
-
-            self.lat_mask = lat > (coord[0] - coord_offset)
-            self.lat_mask &= lat < (coord[0] + coord_offset)
-
-            self.lon_mask = lon > (coord[1] - coord_offset)
-            self.lon_mask &= lon < (coord[1] + coord_offset)
-
-            mask = self.lat_mask & self.lon_mask
-            if not mask.any():
-                msg = (
-                    'Could not find any pixels from GHS data close to '
-                    f'{coord} +/- {coord_offset}'
+        self.fps = []
+        self.handles = []
+        for fp in fps:
+            handle = xr.open_dataset(fp)
+            assert 'band_data' in handle
+            assert 'x' in handle.coords
+            assert 'y' in handle.coords
+            try:
+                yslice, xslice = Utilities.get_proj_slices(
+                    coord, coord_offset, handle
                 )
-                raise RuntimeError(msg)
+            except RuntimeError as _:
+                logger.info(f'GHS data didnt have nearby data, ignoring: {fp}')
+                print(f'GHS data didnt have nearby data, ignoring: {fp}')
+            else:
+                handle = handle.isel(y=yslice, x=xslice)
+                handle = handle.rio.reproject('EPSG:4326')
+                self.handles.append(handle)
+                self.fps.append(fp)
 
-            self.iloc = np.where(mask)[0]
-            self.meta = self.meta_full.iloc[self.iloc].reset_index(drop=True)
-            self.meta['iloc'] = self.iloc
-            if cache is not None:
-                self.meta.to_csv(cache, index=False)
+        if len(self.handles) > 1 or len(self.handles) == 0:
+            msg = (
+                f'Found {len(self.handles)} GHSL files with valid data, '
+                'multi file concatenation needs more testing'
+            )
+            raise NotImplementedError(msg)
 
-        else:
-            self.meta = pd.read_csv(cache)
-            self.iloc = self.meta['iloc'].values
+        self.latitude = []
+        self.longitude = []
+        for handle in self.handles:
+            latitude = handle['y']
+            longitude = handle['x']
+            longitude, latitude = np.meshgrid(longitude, latitude)
+            self.longitude.append(longitude.flatten())
+            self.latitude.append(latitude.flatten())
+
+        self.longitude = np.concatenate(self.longitude, axis=0)
+        self.latitude = np.concatenate(self.latitude, axis=0)
+
+        self.meta = {'latitude': self.latitude, 'longitude': self.longitude}
+        self.meta = pd.DataFrame(self.meta)
+
+        self.regrid = None
 
     def get_data(self, target_meta, target_shape, mode='mean'):
         """Get the GHS data mapped to a target meta / shape.
@@ -1372,13 +1390,15 @@ class GhsData:
             time-dependence.
         """
 
-        with Resource(self.fp) as handle:
-            arr = handle[self.dset, self.iloc]
+        arr = []
+        for handle in self.handles:
+            arr.append(handle['band_data'][0, :, :].values.flatten())
+        arr = np.concatenate(arr, axis=0)
 
         tree = KDTree(target_meta[['latitude', 'longitude']].values)
         d, i = tree.query(self.meta[['latitude', 'longitude']].values)
 
-        df = pd.DataFrame({'data': arr.flatten(), 'gid_target': i, 'd': d})
+        df = pd.DataFrame({'data': arr, 'gid_target': i, 'd': d})
         df = df[df['gid_target'] != len(target_meta)]
         df = df.sort_values('gid_target')
 
@@ -1391,7 +1411,7 @@ class GhsData:
         elif mode.casefold() == 'max':
             df = df.groupby('gid_target').max()
         else:
-            raise
+            raise ValueError(f'Bad mode: "{mode}"')
 
         missing = set(np.arange(len(target_meta))) - set(df.index)
         if len(missing) > 0:
