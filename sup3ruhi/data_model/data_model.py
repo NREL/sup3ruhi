@@ -24,43 +24,233 @@ logger = logging.getLogger(__name__)
 
 
 ATTRS = {
-        'temperature_2m': dict(units="C", description="Near-surface air temperature from ERA5 (~30km hourly instantaneous)", valid_min=-100, valid_max=100, dtype='int16', scale_factor=0.01),
-        'temperature_max_2m': dict(units="C", description="Near-surface air temperature from ERA5 (~30km hourly daily max)", valid_min=-100, valid_max=100, dtype='int16', scale_factor=0.01),
-        'temperature_min_2m': dict(units="C", description="Near-surface air temperature from ERA5 (~30km hourly daily min)", valid_min=-100, valid_max=100, dtype='int16', scale_factor=0.01),
-        'temperature_mean_2m': dict(units="C", description="Near-surface air temperature from ERA5 (~30km hourly daily mean)", valid_min=-100, valid_max=100, dtype='int16', scale_factor=0.01),
-        'u_mean_10m': dict(units="m/s", description="Near-surface east/west wind from ERA5 (~30km hourly daily mean)", valid_min=-100, valid_max=100, dtype='int16', scale_factor=0.01),
-        'v_mean_10m': dict(units="m/s", description="Near-surface north/south wind from ERA5 (~30km hourly daily mean)", valid_min=-100, valid_max=100, dtype='int16', scale_factor=0.01),
-        'relativehumidity_2m': dict(units="%", description="Near-surface relative humidity derived from temperature and dew-point from ERA5 (~30km hourly)", valid_min=0, valid_max=100, dtype='uint16', scale_factor=0.01),
-        'sea_surface_temperature': dict(units="C", description="Sea Surface Temperature from ERA5 (~30km hourly)", valid_min=-100, valid_max=100, dtype='int16', scale_factor=0.01),
-        'lst': dict(units="C", description="MODIS land surface temperature gap filled by Iowa State and ERA5 sea surface temperature (https://doi.org/10.25380/iastate.c.5078492.v3)", valid_min=-100, valid_max=100, dtype='int16', scale_factor=0.01),
-        'evi': dict(units="unitless", description="MODIS Enhanced vegitative index MYD13A2 where a greater value is more vegitation", valid_min=-0.2, valid_max=1, dtype='int16', scale_factor=0.001),
-        'ghi': dict(units="W/m2", description="Global Horizontal Irradiance taken from the NSRDB.", valid_min=0, valid_max=1400, dtype='uint16', scale_factor=0.1),
-        'dni': dict(units="W/m2", description="Direct Normal Irradiance taken from the NSRDB.", valid_min=0, valid_max=1400, dtype='uint16', scale_factor=0.1),
-        'ghi_mean': dict(units="W/m2", description="Daily Average Global Horizontal Irradiance taken from the NSRDB.", valid_min=0, valid_max=700, dtype='uint16', scale_factor=0.1),
-        'dni_mean': dict(units="W/m2", description="Daily Average Direct Normal Irradiance taken from the NSRDB.", valid_min=0, valid_max=700, dtype='uint16', scale_factor=0.1),
-        'albedo_1': dict(units="unitless", description="Surface albedo from MODIS MCD43A4 in band 1 620-670nm", valid_min=0, valid_max=1, dtype='uint16', scale_factor=0.0001),
-        'albedo_2': dict(units="unitless", description="Surface albedo from MODIS MCD43A4 in band 2 841-876nm", valid_min=0, valid_max=1, dtype='uint16', scale_factor=0.0001),
-        'albedo_3': dict(units="unitless", description="Surface albedo from MODIS MCD43A4 in band 3 459-479nm", valid_min=0, valid_max=1, dtype='uint16', scale_factor=0.0001),
-        'albedo_4': dict(units="unitless", description="Surface albedo from MODIS MCD43A4 in band 4 545-565nm", valid_min=0, valid_max=1, dtype='uint16', scale_factor=0.0001),
-        'albedo_5': dict(units="unitless", description="Surface albedo from MODIS MCD43A4 in band 5 1230-1250nm", valid_min=0, valid_max=1, dtype='uint16', scale_factor=0.0001),
-        'albedo_6': dict(units="unitless", description="Surface albedo from MODIS MCD43A4 in band 6 1628-1652nm", valid_min=0, valid_max=1, dtype='uint16', scale_factor=0.0001),
-        'albedo_7': dict(units="unitless", description="Surface albedo from MODIS MCD43A4 in band 7 2105-2155nm", valid_min=0, valid_max=1, dtype='uint16', scale_factor=0.0001),
-        'topography': dict(units="m", description="MODIS SRTM topography from SRTMGL3_NC", valid_min=-100, valid_max=8000, dtype='float32', scale_factor=1.0),
-        'land_mask': dict(units="bool", description="MODIS land mask from land cover type 1 IGBP class from MCD12Q1", valid_min=0, valid_max=1, dtype='int16', scale_factor=1.0),
-        'built_volume': dict(units="1e3 m3", description="Total built volume per cell derived from the EU global human settlement layer", valid_min=0, valid_max=1e4, dtype='float32', scale_factor=1.0),
-        'built_height': dict(units="m", description="Average net building height derived from the EU global human settlement layer", valid_min=0, valid_max=100, dtype='float32', scale_factor=1.0),
-        'built_surface': dict(units="m2", description="Total surface built area derived from the EU global human settlement layer", valid_min=0, valid_max=1e6, dtype='float32', scale_factor=1.0),
-        'population': dict(units="number of people per cell", description="Population derived from the EU global human settlement layer", valid_min=0, valid_max=1e5, dtype='float32', scale_factor=1.0),
-        }
+    'temperature_2m': dict(
+        units='C',
+        description='Near-surface air temperature from ERA5 (~30km hourly instantaneous)',
+        valid_min=-100,
+        valid_max=100,
+        dtype='int16',
+        scale_factor=0.01,
+    ),
+    'temperature_max_2m': dict(
+        units='C',
+        description='Near-surface air temperature from ERA5 (~30km hourly daily max)',
+        valid_min=-100,
+        valid_max=100,
+        dtype='int16',
+        scale_factor=0.01,
+    ),
+    'temperature_min_2m': dict(
+        units='C',
+        description='Near-surface air temperature from ERA5 (~30km hourly daily min)',
+        valid_min=-100,
+        valid_max=100,
+        dtype='int16',
+        scale_factor=0.01,
+    ),
+    'temperature_mean_2m': dict(
+        units='C',
+        description='Near-surface air temperature from ERA5 (~30km hourly daily mean)',
+        valid_min=-100,
+        valid_max=100,
+        dtype='int16',
+        scale_factor=0.01,
+    ),
+    'u_mean_10m': dict(
+        units='m/s',
+        description='Near-surface east/west wind from ERA5 (~30km hourly daily mean)',
+        valid_min=-100,
+        valid_max=100,
+        dtype='int16',
+        scale_factor=0.01,
+    ),
+    'v_mean_10m': dict(
+        units='m/s',
+        description='Near-surface north/south wind from ERA5 (~30km hourly daily mean)',
+        valid_min=-100,
+        valid_max=100,
+        dtype='int16',
+        scale_factor=0.01,
+    ),
+    'relativehumidity_2m': dict(
+        units='%',
+        description='Near-surface relative humidity derived from temperature and dew-point from ERA5 (~30km hourly)',
+        valid_min=0,
+        valid_max=100,
+        dtype='uint16',
+        scale_factor=0.01,
+    ),
+    'sea_surface_temperature': dict(
+        units='C',
+        description='Sea Surface Temperature from ERA5 (~30km hourly)',
+        valid_min=-100,
+        valid_max=100,
+        dtype='int16',
+        scale_factor=0.01,
+    ),
+    'lst': dict(
+        units='C',
+        description='MODIS land surface temperature gap filled by Iowa State and ERA5 sea surface temperature (https://doi.org/10.25380/iastate.c.5078492.v3)',
+        valid_min=-100,
+        valid_max=100,
+        dtype='int16',
+        scale_factor=0.01,
+    ),
+    'evi': dict(
+        units='unitless',
+        description='MODIS Enhanced vegitative index MYD13A2 where a greater value is more vegitation',
+        valid_min=-0.2,
+        valid_max=1,
+        dtype='int16',
+        scale_factor=0.001,
+    ),
+    'ghi': dict(
+        units='W/m2',
+        description='Global Horizontal Irradiance taken from the NSRDB.',
+        valid_min=0,
+        valid_max=1400,
+        dtype='uint16',
+        scale_factor=0.1,
+    ),
+    'dni': dict(
+        units='W/m2',
+        description='Direct Normal Irradiance taken from the NSRDB.',
+        valid_min=0,
+        valid_max=1400,
+        dtype='uint16',
+        scale_factor=0.1,
+    ),
+    'ghi_mean': dict(
+        units='W/m2',
+        description='Daily Average Global Horizontal Irradiance taken from the NSRDB.',
+        valid_min=0,
+        valid_max=700,
+        dtype='uint16',
+        scale_factor=0.1,
+    ),
+    'dni_mean': dict(
+        units='W/m2',
+        description='Daily Average Direct Normal Irradiance taken from the NSRDB.',
+        valid_min=0,
+        valid_max=700,
+        dtype='uint16',
+        scale_factor=0.1,
+    ),
+    'albedo_1': dict(
+        units='unitless',
+        description='Surface albedo from MODIS MCD43A4 in band 1 620-670nm',
+        valid_min=0,
+        valid_max=1,
+        dtype='uint16',
+        scale_factor=0.0001,
+    ),
+    'albedo_2': dict(
+        units='unitless',
+        description='Surface albedo from MODIS MCD43A4 in band 2 841-876nm',
+        valid_min=0,
+        valid_max=1,
+        dtype='uint16',
+        scale_factor=0.0001,
+    ),
+    'albedo_3': dict(
+        units='unitless',
+        description='Surface albedo from MODIS MCD43A4 in band 3 459-479nm',
+        valid_min=0,
+        valid_max=1,
+        dtype='uint16',
+        scale_factor=0.0001,
+    ),
+    'albedo_4': dict(
+        units='unitless',
+        description='Surface albedo from MODIS MCD43A4 in band 4 545-565nm',
+        valid_min=0,
+        valid_max=1,
+        dtype='uint16',
+        scale_factor=0.0001,
+    ),
+    'albedo_5': dict(
+        units='unitless',
+        description='Surface albedo from MODIS MCD43A4 in band 5 1230-1250nm',
+        valid_min=0,
+        valid_max=1,
+        dtype='uint16',
+        scale_factor=0.0001,
+    ),
+    'albedo_6': dict(
+        units='unitless',
+        description='Surface albedo from MODIS MCD43A4 in band 6 1628-1652nm',
+        valid_min=0,
+        valid_max=1,
+        dtype='uint16',
+        scale_factor=0.0001,
+    ),
+    'albedo_7': dict(
+        units='unitless',
+        description='Surface albedo from MODIS MCD43A4 in band 7 2105-2155nm',
+        valid_min=0,
+        valid_max=1,
+        dtype='uint16',
+        scale_factor=0.0001,
+    ),
+    'topography': dict(
+        units='m',
+        description='MODIS SRTM topography from SRTMGL3_NC',
+        valid_min=-100,
+        valid_max=8000,
+        dtype='float32',
+        scale_factor=1.0,
+    ),
+    'land_mask': dict(
+        units='bool',
+        description='MODIS land mask from land cover type 1 IGBP class from MCD12Q1',
+        valid_min=0,
+        valid_max=1,
+        dtype='int16',
+        scale_factor=1.0,
+    ),
+    'built_volume': dict(
+        units='1e3 m3',
+        description='Total built volume per cell derived from the EU global human settlement layer',
+        valid_min=0,
+        valid_max=1e4,
+        dtype='float32',
+        scale_factor=1.0,
+    ),
+    'built_height': dict(
+        units='m',
+        description='Average net building height derived from the EU global human settlement layer',
+        valid_min=0,
+        valid_max=100,
+        dtype='float32',
+        scale_factor=1.0,
+    ),
+    'built_surface': dict(
+        units='m2',
+        description='Total surface built area derived from the EU global human settlement layer',
+        valid_min=0,
+        valid_max=1e6,
+        dtype='float32',
+        scale_factor=1.0,
+    ),
+    'population': dict(
+        units='number of people per cell',
+        description='Population derived from the EU global human settlement layer',
+        valid_min=0,
+        valid_max=1e5,
+        dtype='float32',
+        scale_factor=1.0,
+    ),
+}
 for k, v in ATTRS.items():
     ATTRS[k]['standard_name'] = k
     ATTRS[k]['long_name'] = k
 
 
-HR_OBS = {'los_angeles': [10, 21],
-          'seattle': [10, 21],
-          'houston': [8, 20],
-          }
+HR_OBS = {
+    'los_angeles': [10, 21],
+    'seattle': [10, 21],
+    'houston': [8, 20],
+}
 """UTC MODIS observation hours"""
 
 
@@ -91,16 +281,21 @@ class Utilities:
         longitude = handle['lon'].values
         latitude = handle['lat'].values
         longitude, latitude = np.meshgrid(longitude, latitude)
-        meta = {'latitude': latitude.flatten(),
-                'longitude': longitude.flatten()}
+        meta = {
+            'latitude': latitude.flatten(),
+            'longitude': longitude.flatten(),
+        }
         meta = pd.DataFrame(meta)
 
         return latitude, longitude, meta
 
     @staticmethod
-    def regrid_data(arr, regridder, source_meta, target_meta,
-                    target_shape=None):
-        """
+    def regrid_data(
+        arr, regridder, source_meta, target_meta, target_shape=None
+    ):
+        """Regrid spatiotemporal data using inverse distance weighted
+        interpolation
+
         Parameters
         ----------
         arr : np.ndarray
@@ -134,11 +329,13 @@ class Utilities:
                 arr = np.expand_dims(arr, 1)
 
             if regridder is not None:
-                same_coords = np.allclose(regridder.target_meta.values,
-                                          target_meta.values)
+                same_coords = np.allclose(
+                    regridder.target_meta.values, target_meta.values
+                )
 
-            make_regridder = (regridder is None or target_meta is None
-                              or not same_coords)
+            make_regridder = (
+                regridder is None or target_meta is None or not same_coords
+            )
 
             if make_regridder:
                 regridder = Regridder(source_meta, target_meta)
@@ -257,14 +454,15 @@ class Utilities:
             Time index with 2x observations per day
         """
 
-        ti_base = pd.date_range(f'{year}0101', f'{year+1}0101',
-                                freq='12h', inclusive='left')
+        ti_base = pd.date_range(
+            f'{year}0101', f'{year + 1}0101', freq='12h', inclusive='left'
+        )
         ti = []
         for idt, timestep in enumerate(ti_base):
             if idt % 2 == 0:
                 ti.append(timestep + pd.Timedelta(hours=h1))
             else:
-                ti.append(timestep + pd.Timedelta(hours=h2-12))
+                ti.append(timestep + pd.Timedelta(hours=h2 - 12))
         ti = pd.to_datetime(ti)
         return ti
 
@@ -344,7 +542,6 @@ class ModisRawLstProduct:
         """
 
         if self._time_index is None:
-
             time_index = [ts.isoformat() for ts in self.handle['time'].values]
             time_index = pd.to_datetime(time_index)
 
@@ -352,7 +549,7 @@ class ModisRawLstProduct:
 
             # always raises "Mean of empty slice" warning
             with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
+                warnings.simplefilter('ignore')
                 view_times = np.nanmean(dset.values, axis=(1, 2))
 
             view_times = np.nan_to_num(view_times, nan=np.nanmean(view_times))
@@ -361,17 +558,24 @@ class ModisRawLstProduct:
             view_times[view_times >= 24] -= 24
 
             hours = [int(vt) for vt in view_times]
-            minutes = [int((vt % 1)*60) for vt in view_times]
+            minutes = [int((vt % 1) * 60) for vt in view_times]
 
-            time_index = [mti + timedelta(hours=hours[i], minutes=minutes[i])
-                          for i, mti in enumerate(time_index)]
+            time_index = [
+                mti + timedelta(hours=hours[i], minutes=minutes[i])
+                for i, mti in enumerate(time_index)
+            ]
 
             self._time_index = pd.to_datetime(time_index)
 
         return self._time_index
 
-    def get_data(self, target_meta, target_shape, s_enhance=None,
-                 dset='LST_{daynight}_1km'):
+    def get_data(
+        self,
+        target_meta,
+        target_shape,
+        s_enhance=None,
+        dset='LST_{daynight}_1km',
+    ):
         """Get datasets from the raw MODIS data
 
         Parameters
@@ -400,8 +604,9 @@ class ModisRawLstProduct:
         arr = np.transpose(arr, (1, 2, 0))
 
         arr = arr.reshape((arr.shape[0] * arr.shape[1], -1))
-        arr, self.regrid = Utilities.regrid_data(arr, self.regrid, self.meta,
-                                                 target_meta)
+        arr, self.regrid = Utilities.regrid_data(
+            arr, self.regrid, self.meta, target_meta
+        )
 
         arr = arr.reshape(target_shape + (-1,))
         arr = np.transpose(arr, (2, 0, 1))
@@ -472,8 +677,7 @@ class ModisStaticLayer:
         tree = KDTree(target_meta[['latitude', 'longitude']].values)
         d, i = tree.query(self.meta[['latitude', 'longitude']].values)
 
-        df = pd.DataFrame({'data': arr.flatten(),
-                           'gid_target': i, 'd': d})
+        df = pd.DataFrame({'data': arr.flatten(), 'gid_target': i, 'd': d})
         df = df[df['gid_target'] != len(target_meta)]
         df = df.sort_values('gid_target')
         df = df.groupby('gid_target').mean()
@@ -548,7 +752,6 @@ class ModisVeg:
         arr_interp = np.zeros(full_time_shape, dtype=np.float32)
 
         for idt, ts in enumerate(target_time_index):
-
             dt = np.abs(ts - self.time_index)
             idt0, idt1 = sorted(np.argsort(dt)[:2])
             x0, x1 = dt[idt0].seconds, dt[idt1].seconds
@@ -558,8 +761,9 @@ class ModisVeg:
 
         return arr_interp
 
-    def get_data(self, target_time_index, target_meta, target_shape,
-                 land_mask=None):
+    def get_data(
+        self, target_time_index, target_meta, target_shape, land_mask=None
+    ):
         """Get the MODIS vegitation data interpolated to target spatiotemporal
         meta data
 
@@ -591,15 +795,17 @@ class ModisVeg:
         evi = np.transpose(evi, (1, 2, 0))
         evi = evi.reshape((evi.shape[0] * evi.shape[1], -1))
 
-        evi, self.regrid = Utilities.regrid_data(evi, self.regrid, self.meta,
-                                                 target_meta)
+        evi, self.regrid = Utilities.regrid_data(
+            evi, self.regrid, self.meta, target_meta
+        )
 
         evi = evi.reshape(target_shape + (-1,))
         evi = np.transpose(evi, (2, 0, 1))
 
         if land_mask is not None:
-            evi = Utilities.fill_water_data(evi, land_mask,
-                                            data_range=(-0.2, 1))
+            evi = Utilities.fill_water_data(
+                evi, land_mask, data_range=(-0.2, 1)
+            )
 
         return evi
 
@@ -635,14 +841,24 @@ class ModisAlbedo:
         self.time_index = [ts.isoformat() for ts in self.handle['time'].values]
         self.time_index = pd.to_datetime(self.time_index)
         self.year = self.time_index.year[0]
-        self.full_time_index = pd.date_range(f'{self.year}0101',
-                                             f'{self.year+1}0101', freq='1d',
-                                             inclusive='left')
+        self.full_time_index = pd.date_range(
+            f'{self.year}0101',
+            f'{self.year + 1}0101',
+            freq='1d',
+            inclusive='left',
+        )
 
         self.regrid = None
 
-    def get_data(self, dset, dset_qa=None, coarsen=None, land_mask=None,
-                 t_interp=True, s_interp=True):
+    def get_data(
+        self,
+        dset,
+        dset_qa=None,
+        coarsen=None,
+        land_mask=None,
+        t_interp=True,
+        s_interp=True,
+    ):
         """Get MODIS albedo data coarsened from 500m native resolution to the
         1km MODIS LST resolution
 
@@ -683,7 +899,7 @@ class ModisAlbedo:
 
         arr = self.handle[dset].values
         shape_3d = list(arr.shape)
-        shape_2d = (arr.shape[0], arr.shape[1]*arr.shape[2])
+        shape_2d = (arr.shape[0], arr.shape[1] * arr.shape[2])
 
         if dset_qa is not None:
             arr_qa = self.handle[dset_qa].values
@@ -774,7 +990,7 @@ class Nsrdb:
         for tstamp in target_time_index:
             mask = tstamp.date() == source_time_index.date
             ilocs = np.where(mask)[0]
-            tslices.append(slice(ilocs[0], ilocs[-1]+1))
+            tslices.append(slice(ilocs[0], ilocs[-1] + 1))
 
         if daily_reduce.casefold() == 'max':
             out = np.vstack([arr[tslice].max(0) for tslice in tslices])
@@ -809,8 +1025,14 @@ class Nsrdb:
             idts.append(idt)
         return idts
 
-    def get_data(self, dset, target_time_index, target_meta, target_shape,
-                 daily_reduce=None):
+    def get_data(
+        self,
+        dset,
+        target_time_index,
+        target_meta,
+        target_shape,
+        daily_reduce=None,
+    ):
         """Get timeseries data from NSRDB mapped to target meta data
 
         Parameters
@@ -843,8 +1065,9 @@ class Nsrdb:
 
         arr = np.transpose(arr, axes=(1, 0))
         meta = self.meta.iloc[self.iloc].reset_index(drop=True)
-        arr, self.regrid = Utilities.regrid_data(arr, self.regrid, meta,
-                                                 target_meta)
+        arr, self.regrid = Utilities.regrid_data(
+            arr, self.regrid, meta, target_meta
+        )
         arr = arr.reshape(target_shape + (-1,))
         arr = np.transpose(arr, axes=(2, 0, 1))
         return arr
@@ -896,10 +1119,12 @@ class ModisGfLst:
         lat = self.handle['latitude']
         lon = self.handle['longitude']
 
-        mask = ((lat > coord[0] - coord_offset)
-                & (lat < coord[0] + coord_offset)
-                & (lon > coord[1] - coord_offset)
-                & (lon < coord[1] + coord_offset))
+        mask = (
+            (lat > coord[0] - coord_offset)
+            & (lat < coord[0] + coord_offset)
+            & (lon > coord[1] - coord_offset)
+            & (lon < coord[1] + coord_offset)
+        )
 
         idy, idx = np.where(mask)
         assert (idy.max() - idy.min()) < 1000
@@ -913,8 +1138,10 @@ class ModisGfLst:
         self.longitude = lon[self.yslice, self.xslice]
         self.lat_lon = np.dstack((self.latitude, self.longitude))
 
-        self.meta = {'latitude': self.latitude.flatten(),
-                     'longitude': self.longitude.flatten()}
+        self.meta = {
+            'latitude': self.latitude.flatten(),
+            'longitude': self.longitude.flatten(),
+        }
         self.meta = pd.DataFrame(self.meta)
 
         self.profile = json.loads(self.handle.attrs['band_data']['profile'])
@@ -922,8 +1149,15 @@ class ModisGfLst:
 
         self.regrid = None
 
-    def get_data(self, era_temp=None, new_file=None, check_coords=True,
-                 target_meta=None, target_shape=None, land_mask=None):
+    def get_data(
+        self,
+        era_temp=None,
+        new_file=None,
+        check_coords=True,
+        target_meta=None,
+        target_shape=None,
+        land_mask=None,
+    ):
         """Get MODIS LST data for the requested coordinate +/- offset
 
         Parameters
@@ -977,17 +1211,19 @@ class ModisGfLst:
                     assert np.allclose(self.latitude, new_lat)
                     assert np.allclose(self.longitude, new_lon)
 
-        nan_mask = (lst == self.nodata)
+        nan_mask = lst == self.nodata
         lst = lst.astype(np.float32)
         lst /= 10  # Gap-filled MODIS LST data scaled to 0.1C
         lst[nan_mask] = np.nan
 
         if target_meta is not None:
-            lst, self.regrid = Utilities.regrid_data(lst.flatten(),
-                                                     self.regrid,
-                                                     self.meta,
-                                                     target_meta,
-                                                     target_shape)
+            lst, self.regrid = Utilities.regrid_data(
+                lst.flatten(),
+                self.regrid,
+                self.meta,
+                target_meta,
+                target_shape,
+            )
 
         if land_mask is not None:
             lst = nn_fill_array(lst)
@@ -998,10 +1234,13 @@ class ModisGfLst:
                 try:
                     era_temp = era_temp.reshape(lst.shape)
                 except Exception as e:
-                    msg = ('Could not reshape era_temp input with shape '
-                           '{} to LST shape of {}. The era_temp must be '
-                           'regridded to ModisGfLst.meta!'
-                           .format(era_temp.shape, lst.shape))
+                    msg = (
+                        'Could not reshape era_temp input with shape '
+                        '{} to LST shape of {}. The era_temp must be '
+                        'regridded to ModisGfLst.meta!'.format(
+                            era_temp.shape, lst.shape
+                        )
+                    )
                     raise RuntimeError(msg) from e
             nan_mask = np.isnan(lst)
             lst[nan_mask] = era_temp[nan_mask]
@@ -1057,8 +1296,10 @@ class GhsData:
 
             mask = self.lat_mask & self.lon_mask
             if not mask.any():
-                msg = ('Could not find any pixels from GHS data close to '
-                       f'{coord} +/- {coord_offset}')
+                msg = (
+                    'Could not find any pixels from GHS data close to '
+                    f'{coord} +/- {coord_offset}'
+                )
                 raise RuntimeError(msg)
 
             self.iloc = np.where(mask)[0]
@@ -1102,8 +1343,7 @@ class GhsData:
         tree = KDTree(target_meta[['latitude', 'longitude']].values)
         d, i = tree.query(self.meta[['latitude', 'longitude']].values)
 
-        df = pd.DataFrame({'data': arr.flatten(),
-                           'gid_target': i, 'd': d})
+        df = pd.DataFrame({'data': arr.flatten(), 'gid_target': i, 'd': d})
         df = df[df['gid_target'] != len(target_meta)]
         df = df.sort_values('gid_target')
 
@@ -1177,24 +1417,30 @@ class EraCity:
         lon = lon[self.yslice, self.xslice]
         self.lr_lat_lon = np.dstack((lat, lon))
 
-        self.hr_shape = (self.lr_lat_lon.shape[0] * self.s_enhance,
-                         self.lr_lat_lon.shape[1] * self.s_enhance)
+        self.hr_shape = (
+            self.lr_lat_lon.shape[0] * self.s_enhance,
+            self.lr_lat_lon.shape[1] * self.s_enhance,
+        )
 
-        self.hr_lat_lon = OutputHandler.get_lat_lon(self.lr_lat_lon,
-                                                    self.hr_shape)
+        self.hr_lat_lon = OutputHandler.get_lat_lon(
+            self.lr_lat_lon, self.hr_shape
+        )
 
-        self.hr_meta = {'latitude': self.hr_lat_lon[..., 0].flatten(),
-                        'longitude': self.hr_lat_lon[..., 1].flatten()}
+        self.hr_meta = {
+            'latitude': self.hr_lat_lon[..., 0].flatten(),
+            'longitude': self.hr_lat_lon[..., 1].flatten(),
+        }
         self.hr_meta = pd.DataFrame(self.hr_meta)
 
-        self.lr_meta = {'latitude': self.lr_lat_lon[..., 0].flatten(),
-                        'longitude': self.lr_lat_lon[..., 1].flatten()}
+        self.lr_meta = {
+            'latitude': self.lr_lat_lon[..., 0].flatten(),
+            'longitude': self.lr_lat_lon[..., 1].flatten(),
+        }
         self.lr_meta = pd.DataFrame(self.lr_meta)
 
         self.regrid = None
 
     def get_lr_dset(self, dset, timestamp, daily_reduce):
-
         assert self.handle[dset].shape[0] == self.handle['time'].shape[0]
         assert self.handle[dset].shape[1] == self.handle['lat'].shape[0]
         assert self.handle[dset].shape[2] == self.handle['lon'].shape[0]
@@ -1249,8 +1495,9 @@ class EraCity:
         chunks = np.array_split(arr, n_chunks, axis=0)
         with ProcessPoolExecutor(max_workers=max_workers) as exe:
             for chunk in chunks:
-                future = exe.submit(model.generate, chunk,
-                                    exogenous_data=exo_data)
+                future = exe.submit(
+                    model.generate, chunk, exogenous_data=exo_data
+                )
                 futures.append(future)
 
             for future in futures:
@@ -1259,9 +1506,17 @@ class EraCity:
         out = np.vstack(output)
         return out
 
-    def get_data(self, dsets, time, hr_topo=None, interpolate=True,
-                 daily_reduce=None, target_meta=None, target_shape=None,
-                 max_workers=1):
+    def get_data(
+        self,
+        dsets,
+        time,
+        hr_topo=None,
+        interpolate=True,
+        daily_reduce=None,
+        target_meta=None,
+        target_shape=None,
+        max_workers=1,
+    ):
         """This method takes the ~31km ERA data, uses interpolation methods
         from Sup3r and then regrids the high-res data onto the target meta
         data. The sup3r interp methods includes: lanczos interpolation, t/rh
@@ -1323,9 +1578,11 @@ class EraCity:
             assert hr_topo is not None
             hr_topo = nn_fill_array(hr_topo)
             model = SurfaceSpatialMetModel(dsets, self.s_enhance)
-            lr_topo = spatial_coarsening(np.expand_dims(hr_topo, -1),
-                                         s_enhance=self.s_enhance,
-                                         obs_axis=False)[..., 0]
+            lr_topo = spatial_coarsening(
+                np.expand_dims(hr_topo, -1),
+                s_enhance=self.s_enhance,
+                obs_axis=False,
+            )[..., 0]
             exo_data = [{'data': lr_topo}, {'data': hr_topo}]
             exo_data = {'topography': {'steps': exo_data}}
 
@@ -1341,11 +1598,9 @@ class EraCity:
                 iarr = arr[..., idf]  # (time, space, space)
                 iarr = iarr.reshape((iarr.shape[0], -1))  # (time, space)
                 iarr = np.transpose(iarr, (1, 0))  # (space, time)
-                _iout = Utilities.regrid_data(iarr,
-                                              self.regrid,
-                                              self.hr_meta,
-                                              target_meta,
-                                              target_shape)
+                _iout = Utilities.regrid_data(
+                    iarr, self.regrid, self.hr_meta, target_meta, target_shape
+                )
                 _iarr, self.regrid = _iout
                 _iarr = np.expand_dims(_iarr, -1)
                 regridded_arr.append(_iarr)
@@ -1365,7 +1620,7 @@ class NetCDF:
     @staticmethod
     def clean_encodings(encoding):
         """Clean any bad encoding values e.g.:
-            - integer scale factors
+        - integer scale factors
         """
         for fname, en_attrs in encoding.items():
             for aname, value in en_attrs.items():
@@ -1399,11 +1654,11 @@ class NetCDF:
 
         time = [parser.parse(t) for t in time_index]
 
-        units = "minutes since 1970-01-01 00:00"
+        units = 'minutes since 1970-01-01 00:00'
         if len(time) > 1:
             diff = time[1] - time[0]
             if diff.seconds == 3600:
-                units = "hours since 1970-01-01 00:00"
+                units = 'hours since 1970-01-01 00:00'
 
         values = date2num(time, units)
 
@@ -1439,10 +1694,10 @@ class NetCDF:
         # Build Data Array
         if len(array.shape) == 3:
             coords = [time, latitude, longitude]
-            dims = ["time", "latitude", "longitude"]
+            dims = ['time', 'latitude', 'longitude']
         elif len(array.shape) == 2:
             coords = [latitude, longitude]
-            dims = ["latitude", "longitude"]
+            dims = ['latitude', 'longitude']
         else:
             raise
 
@@ -1457,30 +1712,30 @@ class NetCDF:
         darray = np.minimum(darray, attrs['valid_max'])
         darray = xr.DataArray(darray, coords=coords, dims=dims)
 
-        darray.attrs["standard_name"] = attrs['standard_name']
-        darray.attrs["long_name"] = attrs['long_name']
-        darray.attrs["units"] = attrs['units']
-        darray.attrs["description"] = attrs['description']
-        darray.attrs["missing_value"] = dtype_max
-        darray.attrs["_FillValue"] = dtype_max
-        darray.attrs["valid_min"] = attrs['valid_min']
-        darray.attrs["valid_max"] = attrs['valid_max']
+        darray.attrs['standard_name'] = attrs['standard_name']
+        darray.attrs['long_name'] = attrs['long_name']
+        darray.attrs['units'] = attrs['units']
+        darray.attrs['description'] = attrs['description']
+        darray.attrs['missing_value'] = dtype_max
+        darray.attrs['_FillValue'] = dtype_max
+        darray.attrs['valid_min'] = attrs['valid_min']
+        darray.attrs['valid_max'] = attrs['valid_max']
 
-        darray["latitude"].attrs["standard_name"] = "latitude"
-        darray["latitude"].attrs["long_name"] = "latitude"
-        darray["latitude"].attrs["units"] = "degrees_north"
+        darray['latitude'].attrs['standard_name'] = 'latitude'
+        darray['latitude'].attrs['long_name'] = 'latitude'
+        darray['latitude'].attrs['units'] = 'degrees_north'
 
-        darray["longitude"].attrs["standard_name"] = "longitude"
-        darray["longitude"].attrs["long_name"] = "longitude"
-        darray["longitude"].attrs["units"] = "degrees_east"
+        darray['longitude'].attrs['standard_name'] = 'longitude'
+        darray['longitude'].attrs['long_name'] = 'longitude'
+        darray['longitude'].attrs['units'] = 'degrees_east'
 
         if dims[0] == 'time':
-            darray["time"].encoding["units"] = time_units
-            darray["time"].attrs["units"] = time_units
-            darray["time"].attrs["standard_name"] = "time"
-            darray["time"].attrs["long_name"] = "time"
+            darray['time'].encoding['units'] = time_units
+            darray['time'].attrs['units'] = time_units
+            darray['time'].attrs['standard_name'] = 'time'
+            darray['time'].attrs['long_name'] = 'time'
 
-        darray.attrs["grid_mapping"] = "crs"
+        darray.attrs['grid_mapping'] = 'crs'
 
         return darray
 
@@ -1511,37 +1766,42 @@ class NetCDF:
         ds = xr.Dataset(data_vars=data_vars)
 
         # Add coordinate reference object
-        ds["crs"] = int()
-        ds["crs"].attrs["long_name"] = "coordinate reference system"
-        ds["crs"].attrs["grid_mapping_name"] = "latitude_longitude"
-        ds["crs"].attrs["longitude_of_prime_meridian"] = 0.0
-        ds["crs"].attrs["semi_major_axis"] = 6378137.0
-        ds["crs"].attrs["inverse_flattening"] = 298.257223563
-        ds["crs"].attrs["crs_wkt"] = (
+        ds['crs'] = int()
+        ds['crs'].attrs['long_name'] = 'coordinate reference system'
+        ds['crs'].attrs['grid_mapping_name'] = 'latitude_longitude'
+        ds['crs'].attrs['longitude_of_prime_meridian'] = 0.0
+        ds['crs'].attrs['semi_major_axis'] = 6378137.0
+        ds['crs'].attrs['inverse_flattening'] = 298.257223563
+        ds['crs'].attrs['crs_wkt'] = (
             'GEOGCS["WGS 84",\nDATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.'
             '257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],\n'
             'PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],\nUNIT["degree",'
             '0.01745329251994328,AUTHORITY["EPSG","9122"]],\nAUTHORITY'
             '["EPSG","4326"]]'
         )
-        ds["crs"].attrs["proj4_params"] = (
-            "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+        ds['crs'].attrs['proj4_params'] = (
+            '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
         )
-        ds["crs"].attrs["epsg_code"] = "EPSG:4326"
+        ds['crs'].attrs['epsg_code'] = 'EPSG:4326'
 
         # Global Attributes, CF-1.7 may not be latest
-        ds.attrs["Conventions"] = "CF-1.7"
-        ds.attrs["title"] = "Urban heat island data for sup3r"
-        ds.attrs["nc.institution"] = "Unidata"
-        ds.attrs["source"] = "Sup3rUHI"
-        ds.attrs["date"] = str(datetime.datetime.utcnow())
-        ds.attrs["references"] = ""
-        ds.attrs["comment"] = ""
+        ds.attrs['Conventions'] = 'CF-1.7'
+        ds.attrs['title'] = 'Urban heat island data for sup3r'
+        ds.attrs['nc.institution'] = 'Unidata'
+        ds.attrs['source'] = 'Sup3rUHI'
+        ds.attrs['date'] = str(datetime.datetime.utcnow())
+        ds.attrs['references'] = ''
+        ds.attrs['comment'] = ''
 
         # Write to file
         if fp_out is not None:
             fp_out_tmp = fp_out + '.tmp'
-            ds.load().to_netcdf(fp_out_tmp, format='NETCDF4', engine="h5netcdf", encoding=encoding)
+            ds.load().to_netcdf(
+                fp_out_tmp,
+                format='NETCDF4',
+                engine='h5netcdf',
+                encoding=encoding,
+            )
             shutil.move(fp_out_tmp, fp_out)
 
         return ds
