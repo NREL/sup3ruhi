@@ -492,6 +492,67 @@ class Utilities:
         h1, h2 = sorted(hours)
         return (h1, h2)
 
+    @staticmethod
+    def get_proj_slices(coord, coord_offset, dset):
+        """Get x/y slices to subselect a large raster in a non-WGS84 coordinate
+        system based on a target coordinate and a +/- offset
+
+        Parameters
+        ----------
+        coord : tuple
+            Coordinate (lat, lon) of the city of interest
+        coord_offset : float
+            Offset +/- from the coordinate that is being analyzed with
+            satellite data. This should be a little bit smaller than the ERA
+            raster extent calculated with the pixel nearest the coordinate +/-
+            the pixel_offset
+        dset : xr.Dataset
+            Xarray dataset opening a raster in non-WGS84 coordinate system.
+            Must have dset.rio.crs and coordinates x and y
+
+        Returns
+        -------
+        yslice : slice
+            Slice object to select the y dimension of your non-WGS84 raster
+            that will include the coord/coord_offset
+        xslice : slice
+            Slice object to select the x dimension of your non-WGS84 raster
+            that will include the coord/coord_offset
+        """
+
+        assert 'x' in dset.coords
+        assert 'y' in dset.coords
+        assert dset.rio.crs is not None
+
+        n = 10
+        y_target = np.linspace(
+            coord[0] + coord_offset, coord[0] - coord_offset, n
+        )
+        x_target = np.linspace(
+            coord[1] - coord_offset, coord[1] + coord_offset, n
+        )
+        bounds = xr.Dataset(
+            {
+                'var': (('y', 'x'), np.ones((n, n))),
+            },
+            coords={
+                'y': (('y',), y_target),
+                'x': (('x',), x_target),
+            },
+        )
+        bounds = bounds.rio.write_crs('EPSG:4326')  # set WGS84
+        bounds = bounds.rio.write_transform()
+        bounds = bounds.rio.reproject(dset.rio.crs)
+
+        xslice = (dset.x > bounds.x.min()) & (dset.x < bounds.x.max())
+        yslice = (dset.y > bounds.y.min()) & (dset.y < bounds.y.max())
+        xslice = np.where(xslice)[0]
+        yslice = np.where(yslice)[0]
+        xslice = slice(xslice[0], xslice[-1] + 1)
+        yslice = slice(yslice[0], yslice[-1] + 1)
+
+        return yslice, xslice
+
 
 class ModisRawLstProduct:
     """Class to handle raw MODIS LST data products (MYD11A1.061), convert
@@ -1075,9 +1136,7 @@ class Nsrdb:
 
 class ModisGfLst:
     """Class to handle and remap MODIS gap-filled LST data from the following
-    reference. Note that the data must be converted from .tiff to .h5 using the
-    reVX ExclusionsConverter utility. This is required to get the sinusoidal
-    geographic projection into wgs84 lat/lon
+    reference. Note that this uses the raw sinusoidal projection .tiff data
 
     Zhang, T., Zhou, Y., Zhu, Z., Li, X., and Asrar, G. R.: A global seamless
     1 km resolution daily land surface temperature dataset (2003–2020), Earth
@@ -1090,17 +1149,15 @@ class ModisGfLst:
      5078492)
     """
 
-    def __init__(self, fp, coord, coord_offset):
+    def __init__(self, fp, coord, coord_offset, yslice, xslice):
         """
         Parameters
         ----------
         fp : str
-            Filepath to .h5 that is the MODIS gap-filled LST file from IA State
-            converted from .tiff to .h5 with WGS84 lat/lon coordinates. LST is
+            Filepath to .tiff that is the MODIS gap-filled LST file from
+            IA State with sinusoidal x/y coordinates. LST is
             in 'band_data' dataset and is in units of 0.1C. Needs datasets:
-            'band_data' which has shape (1, latitude, longitude),
-            'latitude' which has shape (latitude, longitude), and
-            'longitude' which has shape (latitude, longitude). Note that this
+            'band_data' which has shape (1, y, x), y, and x. Note that this
             data drops 12/31 in leap years and has missing values offshore.
         coord : tuple
             Coordinate (lat, lon) of the city of interest
@@ -1109,34 +1166,37 @@ class ModisGfLst:
             satellite data. This should be a little bit smaller than the ERA
             raster extent calculated with the pixel nearest the coordinate +/-
             the pixel_offset
+        yslice : slice
+            Slice object to select the y dimension of the non-WGS84 LST raster
+            that will include the coord/coord_offset
+        xslice : slice
+            Slice object to select the x dimension of the non-WGS84 LST raster
+            that will include the coord/coord_offset
         """
 
-        self.handle = Resource(fp)
-        assert 'band_data' in self.handle.dsets
-        assert 'latitude' in self.handle.dsets
-        assert 'longitude' in self.handle.dsets
+        assert fp.endswith(('.tiff', '.tif'))
+        self.handle = xr.open_dataset(fp)
+        assert 'band_data' in self.handle
+        assert 'x' in self.handle.coords
+        assert 'y' in self.handle.coords
 
-        lat = self.handle['latitude']
-        lon = self.handle['longitude']
+        if yslice is not None and xslice is not None:
+            self.yslice, self.xslice = yslice, xslice
+        else:
+            self.yslice, self.xslice = Utilities.get_proj_slices(
+                coord, coord_offset, self.handle
+            )
 
-        mask = (
-            (lat > coord[0] - coord_offset)
-            & (lat < coord[0] + coord_offset)
-            & (lon > coord[1] - coord_offset)
-            & (lon < coord[1] + coord_offset)
+        self.handle = self.handle.isel(y=self.yslice, x=self.xslice)
+        self.handle = self.handle.rio.reproject('EPSG:4326')
+
+        self.latitude = self.handle['y']
+        self.longitude = self.handle['x']
+        self.longitude, self.latitude = np.meshgrid(
+            self.longitude, self.latitude
         )
-
-        idy, idx = np.where(mask)
-        assert (idy.max() - idy.min()) < 1000
-        assert (idx.max() - idx.max()) < 1000
-
-        self.yslice = slice(idy.min(), idy.max() + 1)
-        self.xslice = slice(idx.min(), idx.max() + 1)
-        self.shape = (idy.max() - idy.min() + 1, idx.max() - idx.min() + 1)
-
-        self.latitude = lat[self.yslice, self.xslice]
-        self.longitude = lon[self.yslice, self.xslice]
         self.lat_lon = np.dstack((self.latitude, self.longitude))
+        self.shape = self.longitude.shape
 
         self.meta = {
             'latitude': self.latitude.flatten(),
@@ -1144,16 +1204,11 @@ class ModisGfLst:
         }
         self.meta = pd.DataFrame(self.meta)
 
-        self.profile = json.loads(self.handle.attrs['band_data']['profile'])
-        self.nodata = self.profile['nodata']
-
         self.regrid = None
 
     def get_data(
         self,
         era_temp=None,
-        new_file=None,
-        check_coords=True,
         target_meta=None,
         target_shape=None,
         land_mask=None,
@@ -1168,16 +1223,6 @@ class ModisGfLst:
             caused by water pixels. If None, NaNs will be present in the
             output. This needs to be the same shape as the final output, e.g.
             the same as target_shape
-        new_file : str | None
-            Optional new filepath to another .h5 of MODIS gap-filled LST data.
-            Inputting a new_file will use the previously calculated slicing
-            parameters of this object and will be faster than initializing a
-            new ModisGfLst object
-        check_coords : bool
-            If new_file is being used, check that the coordinates of the
-            new_file match the original file path input. This slows things down
-            considerably and can be disabled once you have confidence the
-            coordinates match across files.
         target_meta : pd.DataFrame
             Target meta data to regrid the IAState LST data to, should be
             standard NREL meta data with columns for latitude and longitude
@@ -1200,21 +1245,11 @@ class ModisGfLst:
             if not.
         """
 
-        if new_file is None:
-            lst = self.handle['band_data', 0, self.yslice, self.xslice]
-        else:
-            with Resource(new_file) as res:
-                lst = res['band_data', 0, self.yslice, self.xslice]
-                if check_coords:
-                    new_lat = res['latitude', self.yslice, self.xslice]
-                    new_lon = res['longitude', self.yslice, self.xslice]
-                    assert np.allclose(self.latitude, new_lat)
-                    assert np.allclose(self.longitude, new_lon)
+        lst = self.handle['band_data'][0, :, :].values
 
-        nan_mask = lst == self.nodata
+        nan_mask = np.isnan(lst)
         lst = lst.astype(np.float32)
         lst /= 10  # Gap-filled MODIS LST data scaled to 0.1C
-        lst[nan_mask] = np.nan
 
         if target_meta is not None:
             lst, self.regrid = Utilities.regrid_data(
