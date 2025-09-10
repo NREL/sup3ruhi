@@ -40,4 +40,4 @@ jobs:
         with:
           version: 0.4.10
           args: check --output-format=github
-          src: "./sup3r ./tests"
+          src: "./sup3ruhi"
