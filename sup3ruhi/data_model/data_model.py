@@ -1,3 +1,4 @@
+"""Classes to handle various data formats for fusion in Sup3rUHI"""
 import os
 import glob
 import shutil
@@ -5,7 +6,6 @@ from concurrent.futures import ProcessPoolExecutor
 from cftime import date2num
 import datetime
 from dateutil import parser
-import json
 from rex import Resource, MultiFileResource
 from scipy.spatial import KDTree
 import pandas as pd
@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 ATTRS = {
     'temperature_2m': dict(
         units='C',
-        description='Near-surface air temperature from ERA5 (~30km hourly instantaneous)',
+        description="""Near-surface air temperature from ERA5
+        (~30km hourly instantaneous)""",
         valid_min=-100,
         valid_max=100,
         dtype='int16',
@@ -35,7 +36,8 @@ ATTRS = {
     ),
     'temperature_max_2m': dict(
         units='C',
-        description='Near-surface air temperature from ERA5 (~30km hourly daily max)',
+        description="""Near-surface air temperature from ERA5
+        (~30km hourly daily max)""",
         valid_min=-100,
         valid_max=100,
         dtype='int16',
@@ -43,7 +45,8 @@ ATTRS = {
     ),
     'temperature_min_2m': dict(
         units='C',
-        description='Near-surface air temperature from ERA5 (~30km hourly daily min)',
+        description="""Near-surface air temperature from ERA5
+        (~30km hourly daily min)""",
         valid_min=-100,
         valid_max=100,
         dtype='int16',
@@ -51,7 +54,8 @@ ATTRS = {
     ),
     'temperature_mean_2m': dict(
         units='C',
-        description='Near-surface air temperature from ERA5 (~30km hourly daily mean)',
+        description="""Near-surface air temperature from ERA5
+        (~30km hourly daily mean)""",
         valid_min=-100,
         valid_max=100,
         dtype='int16',
@@ -59,7 +63,8 @@ ATTRS = {
     ),
     'u_mean_10m': dict(
         units='m/s',
-        description='Near-surface east/west wind from ERA5 (~30km hourly daily mean)',
+        description="""Near-surface east/west wind from ERA5
+        (~30km hourly daily mean)""",
         valid_min=-100,
         valid_max=100,
         dtype='int16',
@@ -67,7 +72,8 @@ ATTRS = {
     ),
     'v_mean_10m': dict(
         units='m/s',
-        description='Near-surface north/south wind from ERA5 (~30km hourly daily mean)',
+        description="""Near-surface north/south wind from ERA5
+        (~30km hourly daily mean)""",
         valid_min=-100,
         valid_max=100,
         dtype='int16',
@@ -75,7 +81,8 @@ ATTRS = {
     ),
     'relativehumidity_2m': dict(
         units='%',
-        description='Near-surface relative humidity derived from temperature and dew-point from ERA5 (~30km hourly)',
+        description="""Near-surface relative humidity derived from temperature
+        and dew-point from ERA5 (~30km hourly)""",
         valid_min=0,
         valid_max=100,
         dtype='uint16',
@@ -91,7 +98,9 @@ ATTRS = {
     ),
     'lst': dict(
         units='C',
-        description='MODIS land surface temperature gap filled by Iowa State and ERA5 sea surface temperature (https://doi.org/10.25380/iastate.c.5078492.v3)',
+        description="""MODIS land surface temperature gap filled by Iowa State
+        and ERA5 sea surface temperature
+        (https://doi.org/10.25380/iastate.c.5078492.v3)""",
         valid_min=-100,
         valid_max=100,
         dtype='int16',
@@ -99,7 +108,8 @@ ATTRS = {
     ),
     'evi': dict(
         units='unitless',
-        description='MODIS Enhanced vegitative index MYD13A2 where a greater value is more vegitation',
+        description="""MODIS Enhanced vegitative index MYD13A2 where a greater
+        value is more vegitation""",
         valid_min=-0.2,
         valid_max=1,
         dtype='int16',
@@ -123,7 +133,8 @@ ATTRS = {
     ),
     'ghi_mean': dict(
         units='W/m2',
-        description='Daily Average Global Horizontal Irradiance taken from the NSRDB.',
+        description="""Daily Average Global Horizontal Irradiance taken from
+        the NSRDB.""",
         valid_min=0,
         valid_max=700,
         dtype='uint16',
@@ -131,7 +142,8 @@ ATTRS = {
     ),
     'dni_mean': dict(
         units='W/m2',
-        description='Daily Average Direct Normal Irradiance taken from the NSRDB.',
+        description="""Daily Average Direct Normal Irradiance taken from the
+        NSRDB.""",
         valid_min=0,
         valid_max=700,
         dtype='uint16',
@@ -203,7 +215,8 @@ ATTRS = {
     ),
     'land_mask': dict(
         units='bool',
-        description='MODIS land mask from land cover type 1 IGBP class from MCD12Q1',
+        description="""MODIS land mask from land cover type 1 IGBP class from
+        MCD12Q1""",
         valid_min=0,
         valid_max=1,
         dtype='int16',
@@ -211,7 +224,8 @@ ATTRS = {
     ),
     'built_volume': dict(
         units='1e3 m3',
-        description='Total built volume per cell derived from the EU global human settlement layer',
+        description="""Total built volume per cell derived from the EU global
+        human settlement layer""",
         valid_min=0,
         valid_max=1e4,
         dtype='float32',
@@ -219,7 +233,8 @@ ATTRS = {
     ),
     'built_height': dict(
         units='m',
-        description='Average net building height derived from the EU global human settlement layer',
+        description="""Average net building height derived from the EU global
+        human settlement layer""",
         valid_min=0,
         valid_max=100,
         dtype='float32',
@@ -227,7 +242,8 @@ ATTRS = {
     ),
     'built_surface': dict(
         units='m2',
-        description='Total surface built area derived from the EU global human settlement layer',
+        description="""Total surface built area derived from the EU global
+        human settlement layer""",
         valid_min=0,
         valid_max=1e6,
         dtype='float32',
@@ -235,7 +251,8 @@ ATTRS = {
     ),
     'population': dict(
         units='number of people per cell',
-        description='Population derived from the EU global human settlement layer',
+        description="""Population derived from the EU global human settlement
+        layer""",
         valid_min=0,
         valid_max=1e5,
         dtype='float32',
@@ -1001,6 +1018,9 @@ class ModisAlbedo:
 
 
 class Nsrdb:
+    """Class to handle NSRDB .h5 data and munge into Sup3rUHI training data .nc
+    format"""
+
     def __init__(self, fp, coord, coord_offset):
         """
         Parameters
@@ -1333,9 +1353,9 @@ class GhsData:
                     coord, coord_offset, handle
                 )
             except RuntimeError as _:
-                logger.info(f'GHS data didnt have nearby data, ignoring: {fp}')
-                print(f'GHS data didnt have nearby data, ignoring: {fp}')
+                logger.debug(f'GHSL w/ no nearby pixels, ignoring: {fp}')
             else:
+                logger.debug(f'GHSL good extent: {fp}')
                 handle = handle.isel(y=yslice, x=xslice)
                 handle = handle.rio.reproject('EPSG:4326')
                 self.handles.append(handle)
@@ -1496,6 +1516,7 @@ class EraCity:
         self.regrid = None
 
     def get_lr_dset(self, dset, timestamp, daily_reduce):
+        """Get low-resolution data from ERA5 file."""
         assert self.handle[dset].shape[0] == self.handle['time'].shape[0]
         assert self.handle[dset].shape[1] == self.handle['lat'].shape[0]
         assert self.handle[dset].shape[2] == self.handle['lon'].shape[0]
@@ -1624,9 +1645,11 @@ class EraCity:
             elif time is None:
                 iarr = self.handle[dset][:, self.yslice, self.xslice].values
             else:
-                raise
+                raise ValueError(f'Bad time input: {time}')
+
             iarr = np.expand_dims(iarr, -1)
             arr.append(iarr)
+
         arr = np.concatenate(arr, -1)
 
         if interpolate:
@@ -1754,7 +1777,7 @@ class NetCDF:
             coords = [latitude, longitude]
             dims = ['latitude', 'longitude']
         else:
-            raise
+            raise ValueError(f'Bad array shape: {array.shape}')
 
         dtype = attrs.get('dtype', 'float32')
         if 'float' in dtype:
@@ -1821,7 +1844,7 @@ class NetCDF:
         ds = xr.Dataset(data_vars=data_vars)
 
         # Add coordinate reference object
-        ds['crs'] = int()
+        ds['crs'] = int()  # noqa: UP018
         ds['crs'].attrs['long_name'] = 'coordinate reference system'
         ds['crs'].attrs['grid_mapping_name'] = 'latitude_longitude'
         ds['crs'].attrs['longitude_of_prime_meridian'] = 0.0
