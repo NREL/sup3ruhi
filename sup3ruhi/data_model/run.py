@@ -275,6 +275,7 @@ def run(
 
     NetCDF.make_dataset(darrays, fp_out=fp_out_hr, encoding=encoding)
     logger.info(f'Wrote file: {fp_out_hr}')
+    return fp_out_hr
 
 
 if __name__ == '__main__':
