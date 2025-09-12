@@ -1385,7 +1385,7 @@ class GhsData:
 
         self.regrid = None
 
-    def get_data(self, target_meta, target_shape, mode='mean'):
+    def get_data(self, target_meta, target_shape, dist_lim=None, mode='mean'):
         """Get the GHS data mapped to a target meta / shape.
 
         This aggregates 100m GHS data to lower resolution meta data by subgrid
@@ -1399,6 +1399,10 @@ class GhsData:
             longitude
         target_shape : tuple
             2-entry tuple with shape in order of (lat, lon)
+        dist_lim : float
+            Upper distance limit in decimal degrees when aggregating the GHS
+            pixels to the target meta data. If None, this will be calculated as
+            2x the mode of the most common delta of the meta longitude values
         mode : str
             Aggregation mode (mean, sum, min, max)
 
@@ -1415,8 +1419,14 @@ class GhsData:
             arr.append(handle['band_data'][0, :, :].values.flatten())
         arr = np.concatenate(arr, axis=0)
 
+        if dist_lim is None:
+            coords = target_meta.sort_values(['latitude', 'longitude'])
+            dist_lim = coords['longitude'].diff().mode().values[0]
+            dist_lim *= 2  # conservative multiplier for diagnol dist
+
         tree = KDTree(target_meta[['latitude', 'longitude']].values)
-        d, i = tree.query(self.meta[['latitude', 'longitude']].values)
+        d, i = tree.query(self.meta[['latitude', 'longitude']].values,
+                          distance_upper_bound=dist_lim)
 
         df = pd.DataFrame({'data': arr, 'gid_target': i, 'd': d})
         df = df[df['gid_target'] != len(target_meta)]
