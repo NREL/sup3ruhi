@@ -68,7 +68,7 @@ def run(
     input files"""
     modis_lst = ModisGfLst(lst_fp, coord, coord_offset)
     modis_albedo = ModisAlbedo(albedo_fp)
-    era = EraCity(era_fp, coord, coord_offset, pixel_offset, s_enhance)
+    era = EraCity(era_fp, coord, pixel_offset, s_enhance)
     nsrdb = Nsrdb(nsrdb_fp, coord, coord_offset)
 
     target_meta = modis_albedo.meta

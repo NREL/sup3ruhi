@@ -259,9 +259,9 @@ ATTRS = {
         scale_factor=1.0,
     ),
 }
-for k, v in ATTRS.items():
-    ATTRS[k]['standard_name'] = k
-    ATTRS[k]['long_name'] = k
+for name, attrs in ATTRS.items():
+    attrs['standard_name'] = name
+    attrs['long_name'] = name
 
 
 HR_OBS = {
@@ -401,14 +401,14 @@ class Utilities:
             if tree is None:
                 tree = KDTree(source_meta.values)
 
-            d, i = tree.query(target_meta.values)
+            _, idx = tree.query(target_meta.values)
 
             if len(arr.shape) == 1:
                 arr = np.expand_dims(arr, 1)
 
             regridded = []
             for idt in range(arr.shape[1]):
-                iarr = arr[i, idt].reshape((-1, 1))
+                iarr = arr[idx, idt].reshape((-1, 1))
                 regridded.append(iarr)
 
             arr = np.hstack(regridded)
@@ -422,7 +422,7 @@ class Utilities:
         return arr, tree
 
     @staticmethod
-    def fill_water_data(arr, land_mask, data_range=None):
+    def fill_water_data(arr, land_mask):
         """MODIS data has zero vegitation and low albedo over water bodies
         which also have very low surface temperatures. In order to prevent the
         model from learning that black bodies without vegitation are low
@@ -657,7 +657,6 @@ class ModisRawLstProduct:
         self,
         target_meta,
         target_shape,
-        s_enhance=None,
         dset='LST_{daynight}_1km',
     ):
         """Get datasets from the raw MODIS data
@@ -887,9 +886,7 @@ class ModisVeg:
         evi = np.transpose(evi, (2, 0, 1))
 
         if land_mask is not None:
-            evi = Utilities.fill_water_data(
-                evi, land_mask, data_range=(-0.2, 1)
-            )
+            evi = Utilities.fill_water_data(evi, land_mask)
 
         return evi
 
@@ -1458,7 +1455,7 @@ class EraCity:
     """Class to handle data from an ERA file for a small raster extent around a
     single city"""
 
-    def __init__(self, fp, coord, coord_offset, pixel_offset, s_enhance):
+    def __init__(self, fp, coord, pixel_offset, s_enhance):
         """
         Parameters
         ----------
@@ -1469,11 +1466,6 @@ class EraCity:
             u_10m, v_10m
         coord : tuple
             Coordinate (lat, lon) of the city of interest
-        coord_offset : float
-            Offset +/- from the coordinate that is being analyzed with
-            satellite data. This should be a little bit smaller than the ERA
-            raster extent calculated with the pixel nearest the coordinate +/-
-            the pixel_offset
         pixel_offset : int
             Number of ERA pixels +/- the pixel nearest to coord. This
             determines the ERA raster being processed and should be slightly
