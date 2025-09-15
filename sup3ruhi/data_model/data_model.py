@@ -1174,6 +1174,8 @@ class ModisGfLst:
      5078492)
     """
 
+    RESAMPLING = Resampling.bilinear
+
     def __init__(self, fp, coord, coord_offset, yslice=None, xslice=None):
         """
         Parameters
@@ -1214,7 +1216,8 @@ class ModisGfLst:
 
         self.handle = self.handle.isel(y=self.yslice, x=self.xslice)
         self.handle = self.handle.rio.reproject(
-            'EPSG:4326', resampling=Resampling.nearest
+            'EPSG:4326',
+            resampling=self.RESAMPLING,
         )
 
         self.latitude = self.handle['y']
@@ -1315,7 +1318,22 @@ class GhsData:
     https://ghsl.jrc.ec.europa.eu/download.php?
     """
 
-    def __init__(self, fps, coord, coord_offset, yslice=None, xslice=None):
+    MODES = {
+        'sum': Resampling.sum,
+        'mean': Resampling.bilinear,
+        'min': Resampling.min,
+        'max': Resampling.max,
+    }
+
+    def __init__(
+        self,
+        fps,
+        coord,
+        coord_offset,
+        yslice=None,
+        xslice=None,
+        agg_mode='sum',
+    ):
         """
         Parameters
         ----------
@@ -1336,12 +1354,15 @@ class GhsData:
         xslice : slice
             Slice object to select the x dimension of the non-WGS84 LST raster
             that will include the coord/coord_offset
+        agg_mode : str
+            Aggregation mode (mean, sum, min, max)
         """
 
         if isinstance(fps, str):
             fps = sorted(glob.glob(fps))
         assert isinstance(fps, (list, tuple))
 
+        self.agg_mode = agg_mode
         self.fps = []
         self.handles = []
         for fp in fps:
@@ -1359,7 +1380,8 @@ class GhsData:
                 logger.debug(f'GHSL good extent: {fp}')
                 handle = handle.isel(y=yslice, x=xslice)
                 handle = handle.rio.reproject(
-                    'EPSG:4326', resampling=Resampling.nearest
+                    'EPSG:4326',
+                    resampling=self.MODES[self.agg_mode],
                 )
                 self.handles.append(handle)
                 self.fps.append(fp)
@@ -1388,7 +1410,7 @@ class GhsData:
 
         self.regrid = None
 
-    def get_data(self, target_meta, target_shape, dist_lim=None, mode='mean'):
+    def get_data(self, target_meta, target_shape, dist_lim=None):
         """Get the GHS data mapped to a target meta / shape.
 
         This aggregates 100m GHS data to lower resolution meta data by subgrid
@@ -1406,8 +1428,6 @@ class GhsData:
             Upper distance limit in decimal degrees when aggregating the GHS
             pixels to the target meta data. If None, this will be calculated
             from the target_meta
-        mode : str
-            Aggregation mode (mean, sum, min, max)
 
         Returns
         -------
@@ -1435,16 +1455,16 @@ class GhsData:
         df = df[df['dist'] < dist_lim]
         df = df.sort_values('gid_target')
 
-        if mode.casefold() == 'mean':
+        if self.agg_mode.casefold() == 'mean':
             df = df.groupby('gid_target').mean()
-        elif mode.casefold() == 'sum':
+        elif self.agg_mode.casefold() == 'sum':
             df = df.groupby('gid_target').sum()
-        elif mode.casefold() == 'min':
+        elif self.agg_mode.casefold() == 'min':
             df = df.groupby('gid_target').min()
-        elif mode.casefold() == 'max':
+        elif self.agg_mode.casefold() == 'max':
             df = df.groupby('gid_target').max()
         else:
-            raise ValueError(f'Bad mode: "{mode}"')
+            raise ValueError(f'Bad mode: "{self.agg_mode}"')
 
         missing = set(np.arange(len(target_meta))) - set(df.index)
         if len(missing) > 0:

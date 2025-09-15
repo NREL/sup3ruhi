@@ -89,13 +89,13 @@ def run(
         )
         alb_all.append(arr)
 
-    ghs_p = GhsData(ghs_p_fp, coord, coord_offset)
-    ghs_h = GhsData(ghs_h_fp, coord, coord_offset)
-    ghs_v = GhsData(ghs_v_fp, coord, coord_offset)
+    ghs_p = GhsData(ghs_p_fp, coord, coord_offset, agg_mode='sum')
+    ghs_h = GhsData(ghs_h_fp, coord, coord_offset, agg_mode='mean')
+    ghs_v = GhsData(ghs_v_fp, coord, coord_offset, agg_mode='sum')
 
-    population = ghs_p.get_data(target_meta, target_shape, mode='sum')
-    built_height = ghs_h.get_data(target_meta, target_shape, mode='mean')
-    built_volume = ghs_v.get_data(target_meta, target_shape, mode='sum') / 1e3
+    population = ghs_p.get_data(target_meta, target_shape)
+    built_height = ghs_h.get_data(target_meta, target_shape)
+    built_volume = ghs_v.get_data(target_meta, target_shape) / 1e3
 
     srtm = ModisStaticLayer(topo_fp, dset='SRTMGL3_DEM')
     hr_topo_era = srtm.get_data(era.hr_meta, era.hr_shape)
@@ -291,7 +291,7 @@ if __name__ == '__main__':
 
     # Memory bound process, 10 workers with bigmem
     with ProcessPoolExecutor(max_workers=10) as exe:
-        for year in [2018, 2019, 2020]:
+        for year in [2020, 2019, 2018]:
             for city in test_cities:
                 city_str = (
                     city.lower()
