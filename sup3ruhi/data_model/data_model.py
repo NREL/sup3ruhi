@@ -1,4 +1,5 @@
 """Classes to handle various data formats for fusion in Sup3rUHI"""
+
 import os
 import glob
 import shutil
@@ -11,6 +12,7 @@ from scipy.spatial import KDTree
 import pandas as pd
 import numpy as np
 import xarray as xr
+from rasterio.warp import Resampling
 import logging
 from datetime import timedelta
 import warnings
@@ -1211,7 +1213,9 @@ class ModisGfLst:
             )
 
         self.handle = self.handle.isel(y=self.yslice, x=self.xslice)
-        self.handle = self.handle.rio.reproject('EPSG:4326')
+        self.handle = self.handle.rio.reproject(
+            'EPSG:4326', resampling=Resampling.nearest
+        )
 
         self.latitude = self.handle['y']
         self.longitude = self.handle['x']
@@ -1354,7 +1358,9 @@ class GhsData:
             else:
                 logger.debug(f'GHSL good extent: {fp}')
                 handle = handle.isel(y=yslice, x=xslice)
-                handle = handle.rio.reproject('EPSG:4326')
+                handle = handle.rio.reproject(
+                    'EPSG:4326', resampling=Resampling.nearest
+                )
                 self.handles.append(handle)
                 self.fps.append(fp)
 
@@ -1398,8 +1404,8 @@ class GhsData:
             2-entry tuple with shape in order of (lat, lon)
         dist_lim : float
             Upper distance limit in decimal degrees when aggregating the GHS
-            pixels to the target meta data. If None, this will be calculated as
-            2x the mode of the most common delta of the meta longitude values
+            pixels to the target meta data. If None, this will be calculated
+            from the target_meta
         mode : str
             Aggregation mode (mean, sum, min, max)
 
@@ -1416,17 +1422,17 @@ class GhsData:
             arr.append(handle['band_data'][0, :, :].values.flatten())
         arr = np.concatenate(arr, axis=0)
 
+        tree = KDTree(target_meta[['latitude', 'longitude']])
+
         if dist_lim is None:
-            coords = target_meta.sort_values(['latitude', 'longitude'])
-            dist_lim = coords['longitude'].diff().mode().values[0]
-            dist_lim *= 2  # conservative multiplier for diagnol dist
+            dist, _ = tree.query(target_meta[['latitude', 'longitude']], k=2)
+            dist_lim = dist[:, 1].max()
 
-        tree = KDTree(target_meta[['latitude', 'longitude']].values)
-        d, i = tree.query(self.meta[['latitude', 'longitude']].values,
-                          distance_upper_bound=dist_lim)
+        dist, idx = tree.query(self.meta[['latitude', 'longitude']])
 
-        df = pd.DataFrame({'data': arr, 'gid_target': i, 'd': d})
+        df = pd.DataFrame({'data': arr, 'gid_target': idx, 'dist': dist})
         df = df[df['gid_target'] != len(target_meta)]
+        df = df[df['dist'] < dist_lim]
         df = df.sort_values('gid_target')
 
         if mode.casefold() == 'mean':
