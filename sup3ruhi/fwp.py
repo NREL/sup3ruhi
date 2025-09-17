@@ -173,7 +173,6 @@ class Sup3rUHI:
         self.trh_dh = EraCity(
             data_fp_trh,
             self.coord,
-            self.coord_offset,
             self.pixel_offset,
             self.s_enhance,
         )
