@@ -1774,9 +1774,18 @@ class NetCDF:
         - integer scale factors
         """
         for fname, en_attrs in encoding.items():
+
+            dtype = en_attrs.get('dtype', 'float32')
+            if 'float' in dtype:
+                dtype_max = np.finfo(dtype).max
+            else:
+                dtype_max = int(np.iinfo(dtype).max)
+            en_attrs['_FillValue'] = dtype_max
+
             for aname, value in en_attrs.items():
                 if isinstance(value, int):
                     encoding[fname][aname] = float(value)
+
         return encoding
 
     @staticmethod
@@ -1852,25 +1861,28 @@ class NetCDF:
         else:
             raise ValueError(f'Bad array shape: {array.shape}')
 
+        scale = attrs.get('scale_factor', 1)
         dtype = attrs.get('dtype', 'float32')
         if 'float' in dtype:
-            dtype_max = np.finfo(attrs['dtype']).max
+            dtype_max = np.finfo(dtype).max
         else:
-            dtype_max = np.iinfo(attrs['dtype']).max
+            dtype_max = int(np.iinfo(dtype).max)
 
         darray = array.astype(np.float32)
-        darray = np.maximum(darray, attrs['valid_min'])
-        darray = np.minimum(darray, attrs['valid_max'])
+        nan_mask = np.isnan(darray)
+        darray = np.maximum(darray, attrs.get('valid_min', -np.inf))
+        darray = np.minimum(darray, attrs.get('valid_max', np.inf))
+        darray[nan_mask] = dtype_max * scale
+
         darray = xr.DataArray(darray, coords=coords, dims=dims)
 
         darray.attrs['standard_name'] = attrs['standard_name']
         darray.attrs['long_name'] = attrs['long_name']
         darray.attrs['units'] = attrs['units']
         darray.attrs['description'] = attrs['description']
-        darray.attrs['missing_value'] = dtype_max
-        darray.attrs['_FillValue'] = dtype_max
-        darray.attrs['valid_min'] = attrs['valid_min']
-        darray.attrs['valid_max'] = attrs['valid_max']
+
+        darray.attrs['valid_min'] = attrs.get('valid_min', -np.inf)
+        darray.attrs['valid_max'] = attrs.get('valid_max', np.inf)
 
         darray['latitude'].attrs['standard_name'] = 'latitude'
         darray['latitude'].attrs['long_name'] = 'latitude'
