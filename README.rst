@@ -23,10 +23,7 @@ This software is an extension of `(sup3r) <https://nrel.github.io/sup3r>`__.
 
 This software supports the following publication:
 
-Buster, Grant, et al. Tackling Extreme Urban Heat: A Machine Learning Approach
-to Assess the Impacts of Climate Change and the Efficacy of Climate Adaptation
-Strategies in Urban Microclimates. arXiv:2411.05952, arXiv, 8 Nov. 2024.
-arXiv.org, https://doi.org/10.48550/arXiv.2411.05952.
+Buster, G., Cox, J., Benton, B. N. & King, R. N. Estimating the impacts of increasing temperatures and the efficacy of climate adaptation strategies in urban microclimates with deep learning. Urban Climate 64, 102603 (2025) https://doi.org/10.1016/j.uclim.2025.102603.
 
 And has related public data records available at:
 
