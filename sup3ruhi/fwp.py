@@ -1,71 +1,65 @@
+"""Module to run LST and T2M forward pass with trained models"""
+
 import os
 import calendar
-import datetime
-import time
 import logging
 import numpy as np
 import pandas as pd
-from glob import glob
-from inspect import signature
-import matplotlib.pyplot as plt
-import tensorflow as tf
-from sklearn.metrics import r2_score
-from scipy.interpolate import RegularGridInterpolator, interp1d
-from scipy.stats import pearsonr
-import xarray as xr
-import plotly.express as px
+from scipy.interpolate import interp1d
 from warnings import warn
 
-from rex import init_logger
 from phygnn import TfModel
-from sup3r import CONFIG_DIR
 from sup3r.models import Sup3rGan as GanModel
 from sup3r.models.surface import SurfaceSpatialMetModel
 from sup3r.utilities.regridder import Regridder
-from sup3r.preprocessing.dual_batch_handling import DualBatchHandler
-from sup3r.preprocessing.data_handling import DataHandlerH5, DataHandlerNC, DualDataHandler
+from sup3r.preprocessing.data_handling import DataHandlerNC
 from sup3r.utilities.utilities import spatial_coarsening, transform_rotate_wind
 
-from sup3ruhi.data_model.data_model import EraCity, ModisStaticLayer, Nsrdb, Utilities
+from sup3ruhi.data_model.data_model import EraCity, Nsrdb, Utilities
 
 logger = logging.getLogger(__name__)
 
 
 class Sup3rUHI:
+    """Class to run Sup3rUHI LST and T2M pretrained models"""
 
-    CITY_VARS = ('sea_surface_temperature',
-                 'evi',
-                 'albedo_1',
-                 'albedo_2',
-                 'albedo_3',
-                 'albedo_4',
-                 'albedo_5',
-                 'albedo_6',
-                 'albedo_7',
-                 'built_volume',
-                 'built_height',
-                 'population',
-                 'topography',
-                 'land_mask')
+    CITY_VARS = (
+        'sea_surface_temperature',
+        'evi',
+        'albedo_1',
+        'albedo_2',
+        'albedo_3',
+        'albedo_4',
+        'albedo_5',
+        'albedo_6',
+        'albedo_7',
+        'built_volume',
+        'built_height',
+        'population',
+        'topography',
+        'land_mask',
+    )
     """City attributes that are assumed not to vary year to year"""
 
-    def __init__(self, data_fp_trh,
-                 data_fp_city,
-                 data_fp_solar,
-                 model_fp_lst,
-                 model_fp_trh,
-                 year,
-                 hr_obs,
-                 months=None,
-                 era_reanalysis=True,
-                 model_trh_pad=7,
-                 coord_offset=0.5,
-                 pixel_offset=2,
-                 s_enhance=60,
-                 dsets_trh=('temperature_2m', 'relativehumidity_2m'),
-                 use_cpu=True,
-                 max_workers=1,
-                 ):
+    def __init__(
+        self,
+        data_fp_trh,
+        data_fp_city,
+        data_fp_solar,
+        model_fp_lst,
+        model_fp_trh,
+        year,
+        hr_obs,
+        months=None,
+        era_reanalysis=True,
+        model_trh_pad=7,
+        coord_offset=0.5,
+        pixel_offset=2,
+        s_enhance=60,
+        dsets_trh=('temperature_2m', 'relativehumidity_2m'),
+        use_cpu=True,
+        max_workers=1,
+    ):
         """
         Parameters
         ----------
@@ -117,20 +111,17 @@ class Sup3rUHI:
             self.months = tuple(range(1, 13))
 
         if use_cpu:
-            os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
         self.model_lst = GanModel.load(model_fp_lst)
         self.model_trh = TfModel.load(model_fp_trh)
 
-        self.ti_12hr, self.tslice_12hr = self.get_tslice(self.year,
-                                                         self.months,
-                                                         '12h',
-                                                         hr_obs=hr_obs,
-                                                         drop_leap=True)
-        self.ti_1hr, self.tslice_1hr = self.get_tslice(self.year,
-                                                       self.months,
-                                                       '1h',
-                                                       drop_leap=True)
+        self.ti_12hr, self.tslice_12hr = self.get_tslice(
+            self.year, self.months, '12h', hr_obs=hr_obs, drop_leap=True
+        )
+        self.ti_1hr, self.tslice_1hr = self.get_tslice(
+            self.year, self.months, '1h', drop_leap=True
+        )
 
         logger.debug('Loading city data...')
         self.city_data = DataHandlerNC(
@@ -142,10 +133,13 @@ class Sup3rUHI:
             val_split=0.0,
             hr_spatial_coarsen=1,
             temporal_slice=self.tslice_12hr,
-            worker_kwargs=dict(max_workers=1))
+            worker_kwargs=dict(max_workers=1),
+        )
 
-        self.coord = (self.city_data.meta['latitude'].mean(),
-                      self.city_data.meta['longitude'].mean())
+        self.coord = (
+            self.city_data.meta['latitude'].mean(),
+            self.city_data.meta['longitude'].mean(),
+        )
 
         self.solar, self.ghi, self.dni = self.get_solar(data_fp_solar)
 
@@ -176,8 +170,12 @@ class Sup3rUHI:
     def get_trh_era(self, data_fp_trh):
         """Get hourly temperature and humidity data from ERA5 and interpolate
         to high-res city meta data."""
-        self.trh_dh = EraCity(data_fp_trh, self.coord, self.coord_offset,
-                              self.pixel_offset, self.s_enhance)
+        self.trh_dh = EraCity(
+            data_fp_trh,
+            self.coord,
+            self.pixel_offset,
+            self.s_enhance,
+        )
 
         idf_topo = self.city_data.features.index('topography')
         hr_topo = self.city_data.data[:, :, 0, idf_topo]
@@ -187,14 +185,16 @@ class Sup3rUHI:
 
         logger.debug('Loading ERA t/rh data...')
         target_era_shape = self.city_data.shape[:2] + (len(self.ti_1hr),)
-        self.trh_data = self.trh_dh.get_data(self.dsets_trh,
-                                             time=self.tslice_1hr,
-                                             hr_topo=hr_topo_era,
-                                             interpolate=True,
-                                             daily_reduce=None,
-                                             target_meta=self.city_data.meta,
-                                             target_shape=target_era_shape,
-                                             max_workers=self.max_workers)
+        self.trh_data = self.trh_dh.get_data(
+            self.dsets_trh,
+            time=self.tslice_1hr,
+            hr_topo=hr_topo_era,
+            interpolate=True,
+            daily_reduce=None,
+            target_meta=self.city_data.meta,
+            target_shape=target_era_shape,
+            max_workers=self.max_workers,
+        )
 
     def get_trh_h5(self, data_fp_trh):
         """Get hourly temperature and humidity data from an NREL h5 (e.g.,
@@ -204,22 +204,34 @@ class Sup3rUHI:
         nx = self.city_data.lat_lon.shape[1] // self.s_enhance
         ny = self.s_enhance * ny
         nx = self.s_enhance * nx
-        lr_lat_lon = spatial_coarsening(self.city_data.lat_lon[:ny, :nx],
-                                        obs_axis=False,
-                                        s_enhance=self.s_enhance)
-        lr_meta = pd.DataFrame({'latitude': lr_lat_lon[..., 0].flatten(),
-                                'longitude': lr_lat_lon[..., 1].flatten()})
+        lr_lat_lon = spatial_coarsening(
+            self.city_data.lat_lon[:ny, :nx],
+            obs_axis=False,
+            s_enhance=self.s_enhance,
+        )
+        lr_meta = pd.DataFrame(
+            {
+                'latitude': lr_lat_lon[..., 0].flatten(),
+                'longitude': lr_lat_lon[..., 1].flatten(),
+            }
+        )
         self.trh_dh = Nsrdb(data_fp_trh, self.coord, self.coord_offset)
 
         self.trh_data = []
         for dset in self.dsets_trh:
-            if (dset.startswith(('u_', 'v_'))
-                    and 'dset' not in self.trh_dh.handle):
+            if (
+                dset.startswith(('u_', 'v_'))
+                and 'dset' not in self.trh_dh.handle
+            ):
                 arr = self.get_uv_from_wsd(dset, lr_lat_lon, lr_meta)
             else:
-                arr = self.trh_dh.get_data(dset, self.ti_1hr, lr_meta,
-                                           lr_lat_lon.shape[:2],
-                                           daily_reduce=None)
+                arr = self.trh_dh.get_data(
+                    dset,
+                    self.ti_1hr,
+                    lr_meta,
+                    lr_lat_lon.shape[:2],
+                    daily_reduce=None,
+                )
 
             arr = np.expand_dims(arr, -1)
             self.trh_data.append(arr)
@@ -230,14 +242,15 @@ class Sup3rUHI:
         hr_topo = self.city_data.data[:ny, :nx, 0, idf_topo]
 
         model = SurfaceSpatialMetModel(self.dsets_trh, self.s_enhance)
-        lr_topo = spatial_coarsening(np.expand_dims(hr_topo, -1),
-                                     s_enhance=self.s_enhance,
-                                     obs_axis=False)[..., 0]
+        lr_topo = spatial_coarsening(
+            np.expand_dims(hr_topo, -1),
+            s_enhance=self.s_enhance,
+            obs_axis=False,
+        )[..., 0]
         exo_data = [{'data': lr_topo}, {'data': hr_topo}]
         exo_data = {'topography': {'steps': exo_data}}
         # SurfaceSpatialMetModel requires 4D (obs, space, space, features)
-        self.trh_data = model.generate(self.trh_data,
-                                       exogenous_data=exo_data)
+        self.trh_data = model.generate(self.trh_data, exogenous_data=exo_data)
         ny = self.city_data.shape[0] - self.trh_data.shape[1]
         nx = self.city_data.shape[1] - self.trh_data.shape[2]
         if ny > 0 or nx > 0:
@@ -251,12 +264,20 @@ class Sup3rUHI:
         assert 'winddirection_10m' in self.trh_dh.handle
 
         if self._u10m is None and self._v10m is None:
-            ws = self.trh_dh.get_data('windspeed_10m', self.ti_1hr,
-                                      lr_meta, lr_lat_lon.shape[:2],
-                                      daily_reduce=None)
-            wd = self.trh_dh.get_data('winddirection_10m', self.ti_1hr,
-                                      lr_meta, lr_lat_lon.shape[:2],
-                                      daily_reduce=None)
+            ws = self.trh_dh.get_data(
+                'windspeed_10m',
+                self.ti_1hr,
+                lr_meta,
+                lr_lat_lon.shape[:2],
+                daily_reduce=None,
+            )
+            wd = self.trh_dh.get_data(
+                'winddirection_10m',
+                self.ti_1hr,
+                lr_meta,
+                lr_lat_lon.shape[:2],
+                daily_reduce=None,
+            )
             # ws/wd will be in (time, lat, lon).
             # transform_rotate_wind wants (lat, lon, time)
             ws = np.transpose(ws, (1, 2, 0))
@@ -281,8 +302,9 @@ class Sup3rUHI:
         """
 
         if hr_obs is None:
-            ti = pd.date_range(f'{year}0101', f'{year+1}0101',
-                               freq=freq, inclusive='left')
+            ti = pd.date_range(
+                f'{year}0101', f'{year + 1}0101', freq=freq, inclusive='left'
+            )
         else:
             ti = Utilities.get_generic_ti(year, np.min(hr_obs), np.max(hr_obs))
 
@@ -299,20 +321,29 @@ class Sup3rUHI:
         """Get solar data"""
         solar = Nsrdb(data_fp_solar, self.coord, self.coord_offset)
         logger.debug('Loading solar data...')
-        ghi = solar.get_data('ghi', self.ti_1hr, self.city_data.meta,
-                             self.city_data.shape[:2],
-                             daily_reduce=None)
-        dni = solar.get_data('dni', self.ti_1hr, self.city_data.meta,
-                             self.city_data.shape[:2],
-                             daily_reduce=None)
+        ghi = solar.get_data(
+            'ghi',
+            self.ti_1hr,
+            self.city_data.meta,
+            self.city_data.shape[:2],
+            daily_reduce=None,
+        )
+        dni = solar.get_data(
+            'dni',
+            self.ti_1hr,
+            self.city_data.meta,
+            self.city_data.shape[:2],
+            daily_reduce=None,
+        )
         return solar, ghi, dni
 
     def daily_reduce(self, arr, feature):
+        """Reduce hourly data to daily"""
         tslices = []
         for tstamp in self.ti_12hr:
             mask = tstamp.date() == self.ti_1hr.date
             tslice = np.where(mask)[0]
-            tslice = slice(tslice[0], tslice[-1]+1)
+            tslice = slice(tslice[0], tslice[-1] + 1)
             tslices.append(tslice)
 
         if '_max' in feature.casefold():
@@ -334,8 +365,7 @@ class Sup3rUHI:
         lst_input = []
         tslice = np.where(self.ti_1hr.isin(self.ti_12hr))[0]
 
-        for idf, feature in enumerate(self.model_lst.lr_features):
-
+        for feature in self.model_lst.lr_features:
             base_name = feature.replace('_max', '').replace('_min', '')
             base_name = base_name.replace('_mean', '')
 
@@ -367,7 +397,10 @@ class Sup3rUHI:
                 arr = self.daily_reduce(arr, feature)
 
             else:
-                raise
+                raise ValueError(
+                    f'Feature name {feature} and base_name '
+                    f'{base_name} not recognized'
+                )
 
             arr = np.expand_dims(arr, -1)
             lst_input.append(arr)
@@ -381,8 +414,12 @@ class Sup3rUHI:
         return lst_input
 
     def _interp_trh_input_arr(self, arr):
-        """
-        arr must be (time, space, space)
+        """Interpolate low-res ERA5 temperature and relative humidity data
+
+        Parameters
+        ----------
+        arr : np.ndarray
+            Must be shape (time, space, space)
         """
         ti_12hr_int = self.ti_12hr.values.astype(int)
         ti_1hr_int = self.ti_1hr.values.astype(int)
@@ -391,12 +428,19 @@ class Sup3rUHI:
         out_shape = [len(self.ti_1hr), *arr.shape[1:]]
 
         interp_in = arr.reshape(flat_shape)
-        interp_out = np.zeros((len(ti_1hr_int), flat_shape[1]), dtype=np.float32) * np.nan
+        interp_out = (
+            np.zeros((len(ti_1hr_int), flat_shape[1]), dtype=np.float32)
+            * np.nan
+        )
 
         for idx in range(flat_shape[1]):
             fill_value = (interp_in[0, idx], interp_in[-1, idx])
-            interp = interp1d(ti_12hr_int, interp_in[:, idx],
-                              bounds_error=False, fill_value=fill_value)
+            interp = interp1d(
+                ti_12hr_int,
+                interp_in[:, idx],
+                bounds_error=False,
+                fill_value=fill_value,
+            )
             interp_out[:, idx] = interp(ti_1hr_int)
 
         interp_out = interp_out.reshape(out_shape)
@@ -405,10 +449,42 @@ class Sup3rUHI:
 
     def _pad_trh_input_arr(self, arr):
         # TRH model crops spatial footprint, pad here to have good output size
-        padding = ((0, 0), (self.model_trh_pad, self.model_trh_pad),
-                   (self.model_trh_pad, self.model_trh_pad))
+        padding = (
+            (0, 0),
+            (self.model_trh_pad, self.model_trh_pad),
+            (self.model_trh_pad, self.model_trh_pad),
+        )
         arr = np.pad(arr, padding, mode='edge')
         return arr
+
+    def _init_trh_input(self, yslice, xslice):
+        """Initialize an array of zeros with the correct shape for building the
+        TRH model input array.
+
+        Returns
+        -------
+        trh_input : np.ndarray
+            Array of float32 zeros with shape (time, lat, lon, features)
+        """
+
+        # (time, lat, lon, features)
+        shape = [
+            len(self.ti_1hr),
+            self.city_data.shape[0] + 2 * self.model_trh_pad,
+            self.city_data.shape[1] + 2 * self.model_trh_pad,
+            len(self.model_trh.feature_names),
+        ]
+
+        if yslice is not None and yslice != slice(None):
+            shape[1] = len(np.arange(shape[1])[yslice])
+            shape[1] += 2 * self.model_trh_pad
+        if xslice is not None and xslice != slice(None):
+            shape[2] = len(np.arange(shape[2])[xslice])
+            shape[2] += 2 * self.model_trh_pad
+
+        trh_input = np.zeros(shape, dtype=np.float32)
+
+        return trh_input
 
     def make_trh_input(self, lst=None, yslice=slice(None), xslice=slice(None)):
         """Make spatiotemporal data inputs for T2M model"""
@@ -416,30 +492,21 @@ class Sup3rUHI:
         logger.debug('Making TRH input...')
 
         if lst is None and self.lst is None:
-            logger.debug('LST input to T2M model is None, '
-                         'running LST model...')
-            lst = self.generate_lst(lst_input=None, yslice=yslice, xslice=xslice)
+            logger.debug(
+                'LST input to T2M model is None, running LST model...'
+            )
+            lst = self.generate_lst(
+                lst_input=None, yslice=yslice, xslice=xslice
+            )
         elif lst is None and self.lst is not None:
-            logger.debug('LST input to T2M model is None, '
-                         'using self.lst...')
+            logger.debug('LST input to T2M model is None, using self.lst...')
             lst = self.lst
 
         lst_input = self.lst_input
         if self.lst_input is None:
             lst_input = self.make_lst_input(yslice=yslice, xslice=xslice)
 
-        # (time, lat, lon, features)
-        shape = [len(self.ti_1hr),
-                 self.city_data.shape[0] + 2 * self.model_trh_pad,
-                 self.city_data.shape[1] + 2 * self.model_trh_pad,
-                 len(self.model_trh.feature_names)]
-        if yslice is not None and yslice != slice(None):
-            shape[1] = len(np.arange(shape[1])[yslice])
-            shape[1] += 2 * self.model_trh_pad
-        if xslice is not None and xslice != slice(None):
-            shape[2] = len(np.arange(shape[2])[xslice])
-            shape[2] += 2 * self.model_trh_pad
-        trh_input = np.zeros(shape, dtype=np.float32)
+        trh_input = self._init_trh_input(yslice, xslice)
 
         for idf, feature in enumerate(self.model_trh.feature_names):
             roll = 0
@@ -451,7 +518,6 @@ class Sup3rUHI:
 
             if feature in self.dsets_trh:
                 idf_source = self.dsets_trh.index(feature)
-                # idt_source = np.where(self.ti_1hr.isin(self.ti_12hr))[0]
                 arr = self.trh_data[:, yslice, xslice, idf_source]
 
             elif feature == 'ghi':
@@ -478,7 +544,13 @@ class Sup3rUHI:
 
         return trh_input
 
-    def generate_lst(self, lst_input=None, chunks=None, yslice=slice(None), xslice=slice(None)):
+    def generate_lst(
+        self,
+        lst_input=None,
+        chunks=None,
+        yslice=slice(None),
+        xslice=slice(None),
+    ):
         """Generate LST data"""
 
         if lst_input is None:
@@ -492,13 +564,15 @@ class Sup3rUHI:
         lst_input = np.expand_dims(lst_input, 0)
 
         if chunks is None:
-            lst = self.model_lst.generate(lst_input,
-                                          norm_in=True,
-                                          un_norm_out=True)
+            lst = self.model_lst.generate(
+                lst_input, norm_in=True, un_norm_out=True
+            )
         else:
             input_chunks = np.array_split(lst_input, chunks, axis=3)
-            lst = [self.model_lst.generate(ix, norm_in=True, un_norm_out=True)
-                   for ix in input_chunks]
+            lst = [
+                self.model_lst.generate(ix, norm_in=True, un_norm_out=True)
+                for ix in input_chunks
+            ]
             lst = np.concatenate(lst, axis=3)
 
         logger.debug('Finished LST model!')
@@ -507,8 +581,9 @@ class Sup3rUHI:
         # (time, lat, lon)
         return self.lst
 
-    def _rescale_trh_profiles(self, model_pred, feature_tag,
-                              yslice=slice(None), xslice=slice(None)):
+    def _rescale_trh_profiles(
+        self, model_pred, feature_tag, yslice=slice(None), xslice=slice(None)
+    ):
         """Use the UHI model predictions to rescale the hourly TRH profiles
 
         Parameters
@@ -522,20 +597,26 @@ class Sup3rUHI:
             or humidity
         """
 
-        ti_1hr, _ = self.get_tslice(self.city_data.time_index.year[0],
-                                    self.months, '1h', drop_leap=True)
+        ti_1hr, _ = self.get_tslice(
+            self.city_data.time_index.year[0],
+            self.months,
+            '1h',
+            drop_leap=True,
+        )
 
         idf_era = self._find_index(self.dsets_trh, feature_tag)
         profiles = self.trh_data[:, yslice, xslice, idf_era]
-        df_hourly = pd.DataFrame(profiles.reshape((len(profiles), -1)),
-                                 index=ti_1hr)
+        df_hourly = pd.DataFrame(
+            profiles.reshape((len(profiles), -1)), index=ti_1hr
+        )
         df_hourly = df_hourly.round(2)
 
         idf_pred = self._find_index(self.model_trh.label_names, feature_tag)
         df_pred = model_pred[..., idf_pred]
         df_pred = df_pred.reshape((len(model_pred), -1))
-        df_pred = pd.DataFrame(df_pred,
-                               index=self.city_data.time_index.round('1h'))
+        df_pred = pd.DataFrame(
+            df_pred, index=self.city_data.time_index.round('1h')
+        )
         df_pred = df_pred.reindex(df_hourly.index)
 
         scalar = df_pred / df_hourly
@@ -543,42 +624,60 @@ class Sup3rUHI:
         scalar = scalar.interpolate('linear', axis=0).bfill().ffill()
 
         df_pred = df_hourly * scalar
-        shape = (len(df_pred), int(df_pred.shape[1]**0.5),
-                 int(df_pred.shape[1]**0.5))
+        shape = (
+            len(df_pred),
+            int(df_pred.shape[1] ** 0.5),
+            int(df_pred.shape[1] ** 0.5),
+        )
         out = df_pred.values.reshape(shape)
 
         return out
 
-    def generate_trh(self, trh_input=None, chunks=None, yslice=slice(None), xslice=slice(None)):
+    def generate_trh(
+        self,
+        trh_input=None,
+        chunks=None,
+        yslice=slice(None),
+        xslice=slice(None),
+    ):
         """Generate T2M data"""
         if trh_input is None:
-            logger.debug('Input to TRH model is None, '
-                         'making TRH model input...')
-            trh_input = self.make_trh_input(lst=None, yslice=yslice, xslice=xslice)
+            logger.debug(
+                'Input to TRH model is None, making TRH model input...'
+            )
+            trh_input = self.make_trh_input(
+                lst=None, yslice=yslice, xslice=xslice
+            )
 
         logger.debug('Running TRH model...')
 
         if chunks is None:
             self.trh_pred = self.model_trh.predict(trh_input)
         else:
-            out_shape = (trh_input.shape[0],
-                         trh_input.shape[1] - 2 * self.model_trh_pad,
-                         trh_input.shape[2] - 2 * self.model_trh_pad,
-                         len(self.model_trh.label_names))
+            out_shape = (
+                trh_input.shape[0],
+                trh_input.shape[1] - 2 * self.model_trh_pad,
+                trh_input.shape[2] - 2 * self.model_trh_pad,
+                len(self.model_trh.label_names),
+            )
             self.trh_pred = np.zeros(out_shape, dtype=np.float32) * np.nan
             run_chunks = np.array_split(np.arange(len(trh_input)), chunks)
-            run_slices = [slice(id0[0], id0[-1]+1) for id0 in run_chunks]
+            run_slices = [slice(id0[0], id0[-1] + 1) for id0 in run_chunks]
             for idc, run_slice in enumerate(run_slices):
                 iout = self.model_trh.predict(trh_input[run_slice])
                 self.trh_pred[run_slice] = iout
-                logger.debug(f'Finished chunk {idc+1} out of {len(run_chunks)}')
+                logger.debug(
+                    f'Finished chunk {idc + 1} out of {len(run_chunks)}'
+                )
 
         if np.isnan(self.trh_pred).sum() > 0:
             n_nan = np.isnan(self.trh_pred).sum()
             n_tot = self.trh_pred.size
             perc = 100 * n_nan / n_tot
-            msg = (f'TRH output prediction had {n_nan} NaNs '
-                   f'out of {n_tot} ({perc:.2f}%)')
+            msg = (
+                f'TRH output prediction had {n_nan} NaNs '
+                f'out of {n_tot} ({perc:.2f}%)'
+            )
             warn(msg)
             logger.warning(msg)
 
@@ -593,8 +692,13 @@ class Sup3rUHI:
         return self.t2m, self.rh2m
 
     def generate(self, chunks=None, yslice=slice(None), xslice=slice(None)):
+        """Run full generation fwp with LST and T2M estimates"""
         lst_input = self.make_lst_input(yslice=yslice, xslice=xslice)
-        lst = self.generate_lst(lst_input, chunks=chunks, yslice=yslice, xslice=xslice)
+        lst = self.generate_lst(
+            lst_input, chunks=chunks, yslice=yslice, xslice=xslice
+        )
         trh_input = self.make_trh_input(lst, yslice=yslice, xslice=xslice)
-        t2m, rh2m = self.generate_trh(trh_input, chunks=chunks, yslice=yslice, xslice=xslice)
+        t2m, rh2m = self.generate_trh(
+            trh_input, chunks=chunks, yslice=yslice, xslice=xslice
+        )
         return t2m, rh2m, lst
